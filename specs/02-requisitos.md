@@ -6,6 +6,8 @@ cómo se verifica:
 - **automática** — prueba con Node (`tests/*.test.mjs`).
 - **navegador** — prueba de interfaz con Playwright (`tests/ui/*.ui.mjs`).
 - **manual** — hay que comprobarlo a mano; lleva escrito el procedimiento.
+- **retirado** — ya no se exige. Se conserva la ficha con el motivo, porque los
+  números no se reutilizan.
 
 ---
 
@@ -297,10 +299,7 @@ hace el algoritmo.
 1. **Dado** un mazo sin tarjetas, **entonces** se dice eso y se ofrece añadirlas.
 2. **Dado** que quedan tarjetas nuevas pero se ha alcanzado el límite diario,
    **entonces** se dice cuál es el límite y cuántas quedan sin empezar.
-3. **Dado** que hay repasos pendientes retenidos por el límite diario de
-   repasos, **entonces** se dice eso. Si no hay ninguno retenido, no se menciona
-   ese límite.
-4. **Dado** que está todo repasado, **entonces** se dice cuándo vuelve la
+3. **Dado** que está todo repasado, **entonces** se dice cuándo vuelve la
    siguiente tarjeta.
 
 **Verificación:** automática
@@ -353,13 +352,21 @@ porque introducir material cuando ya hay atraso es lo que hunde a la gente.
 
 **Verificación:** automática
 
-### RF-403 — Límite diario de repasos
+### RF-403 — Límite diario de repasos ~~(retirado)~~
 
-**Criterios de aceptación.**
-1. **Dado** un límite de M repasos al día, **entonces** la cola no ofrece más de
-   M tarjetas en estado *repaso* en un mismo día de estudio.
+**Retirado.** Los repasos vencidos ya no se limitan: si toca, toca.
 
-**Verificación:** automática
+El límite venía de Anki, donde tiene sentido con mazos compartidos de miles de
+tarjetas que uno no ha escrito. Aquí las tarjetas las escribes tú, así que el
+volumen diario ya está acotado de forma natural por el ritmo al que las creas, y
+lo que hace el límite de repasos es justo lo contrario de lo que se busca:
+aplaza material que el algoritmo ha calculado que estás a punto de olvidar, y lo
+acumula para mañana. El freno correcto está en la entrada de material nuevo
+([RF-402](#rf-402--límite-diario-de-tarjetas-nuevas)), no en la salida.
+
+Su número no se reutiliza.
+
+**Verificación:** retirado
 
 ### RF-404 — El aprendizaje empezado no se corta
 
@@ -367,9 +374,9 @@ porque introducir material cuando ya hay atraso es lo que hunde a la gente.
 los dos mundos: ya has gastado el esfuerzo y no consolidas.
 
 **Criterios de aceptación.**
-1. **Dado** que se han alcanzado todos los límites diarios, **entonces** las
-   tarjetas en aprendizaje o reaprendizaje que ya han vencido se siguen
-   ofreciendo.
+1. **Dado** que se ha alcanzado el límite diario de tarjetas nuevas,
+   **entonces** las tarjetas en aprendizaje o reaprendizaje que ya han vencido
+   se siguen ofreciendo.
 
 **Verificación:** automática
 
@@ -379,7 +386,8 @@ los dos mundos: ya has gastado el esfuerzo y no consolidas.
 día nuevo con el cupo recién puesto a cero.
 
 **Criterios de aceptación.**
-1. Los contadores diarios se reinician a las 4:00 locales, no a medianoche.
+1. El contador de tarjetas nuevas introducidas se reinicia a las 4:00
+   locales, no a medianoche.
 2. **Dado** que respondo a las 2:00, **entonces** cuenta para el día natural
    anterior.
 
@@ -417,13 +425,15 @@ lo que toca ahora, no lo que tocaba al abrirla.
 
 ## RF-5xx · Ajustes y progreso
 
-### RF-501 — Cambiar los límites diarios
+### RF-501 — Cambiar el límite diario de tarjetas nuevas
 
 **Criterios de aceptación.**
-1. Puedo cambiar el número de tarjetas nuevas y de repasos por día.
-2. Los valores por defecto son 20 nuevas y 200 repasos.
+1. Puedo cambiar cuántas tarjetas nuevas se introducen al día.
+2. El valor por defecto es 20.
 3. Un valor negativo o no numérico se corrige a 0.
 4. El cambio tiene efecto inmediato, sin recargar.
+5. No hay ningún ajuste equivalente para los repasos
+   ([RF-403](#rf-403--límite-diario-de-repasos-retirado) está retirado).
 
 **Verificación:** automática
 

@@ -8,10 +8,11 @@ en cada `npm test`.
 | | |
 | --- | --- |
 | Requisitos especificados | 55 |
-| De verificación automática o de navegador | 55 |
-| Cubiertos por al menos una prueba | 55 |
+| De verificación automática o de navegador | 54 |
+| Cubiertos por al menos una prueba | 54 |
 | De verificación manual | 0 |
-| Pruebas distintas implicadas | 111 |
+| Retirados | 1 |
+| Pruebas distintas implicadas | 112 |
 
 ## Requisitos funcionales
 
@@ -41,17 +42,16 @@ en cada `npm test`.
 | [RF-303](02-requisitos.md#rf-303--cuatro-niveles-de-respuesta) | Cuatro niveles de respuesta | navegador | `js/app.js` | hay cuatro botones, en orden |
 | [RF-304](02-requisitos.md#rf-304--ver-el-plazo-antes-de-responder) | Ver el plazo antes de responder | navegador | `js/app.js` | formatDelay usa unidades legibles<br>cada botón enseña su plazo, en orden creciente |
 | [RF-305](02-requisitos.md#rf-305--responder-y-pasar-a-la-siguiente) | Responder y pasar a la siguiente | navegador | `js/app.js` | responder pasa a otra tarjeta, otra vez oculta |
-| [RF-306](02-requisitos.md#rf-306--explicar-por-qué-no-hay-nada-que-estudiar) | Explicar por qué no hay nada que estudiar | automática | `js/srs.js` | un mazo vacío lo dice<br>con el límite de nuevas alcanzado se dice cuántas quedan<br>el límite de repasos solo se menciona si retiene algo<br>al día se dice cuándo vuelve la siguiente tarjeta |
+| [RF-306](02-requisitos.md#rf-306--explicar-por-qué-no-hay-nada-que-estudiar) | Explicar por qué no hay nada que estudiar | automática | `js/srs.js` | un mazo vacío lo dice<br>con el límite de nuevas alcanzado se dice cuántas quedan<br>nunca se habla de un límite de repasos<br>al día se dice cuándo vuelve la siguiente tarjeta |
 | [RF-307](02-requisitos.md#rf-307--editar-o-borrar-la-tarjeta-que-estoy-viendo) | Editar o borrar la tarjeta que estoy viendo | navegador | — | se puede editar la tarjeta que se está viendo |
 | [RF-308](02-requisitos.md#rf-308--atajos-de-teclado) | Atajos de teclado | navegador | — | espacio voltea y las teclas 1-4 responden<br>los atajos no actúan mientras se escribe |
-| [RF-401](02-requisitos.md#rf-401--orden-de-la-cola) | Orden de la cola | automática | `js/srs.js` | la cola pone primero los repasos vencidos y deja las nuevas al final<br>dentro de cada grupo va antes lo más atrasado<br>los contadores separan nuevas, aprendiendo y repaso |
+| [RF-401](02-requisitos.md#rf-401--orden-de-la-cola) | Orden de la cola | automática | `js/srs.js` | la cola pone primero los repasos vencidos y deja las nuevas al final<br>dentro de cada grupo va antes lo más atrasado<br>los repasos vencidos se ofrecen todos, sin tope diario<br>los contadores separan nuevas, aprendiendo y repaso |
 | [RF-402](02-requisitos.md#rf-402--límite-diario-de-tarjetas-nuevas) | Límite diario de tarjetas nuevas | automática | `js/srs.js` | la cola respeta el límite diario de tarjetas nuevas |
-| [RF-403](02-requisitos.md#rf-403--límite-diario-de-repasos) | Límite diario de repasos | automática | `js/srs.js` | la cola respeta el límite diario de repasos |
 | [RF-404](02-requisitos.md#rf-404--el-aprendizaje-empezado-no-se-corta) | El aprendizaje empezado no se corta | automática | `js/srs.js` | el aprendizaje ya empezado no se corta por los límites |
 | [RF-405](02-requisitos.md#rf-405--el-día-de-estudio-empieza-a-las-400) | El día de estudio empieza a las 4:00 | automática | `js/srs.js`<br>`js/store.js` | el día de estudio empieza a las 4 de la mañana<br>los contadores del día se reinician al pasar de las 4:00 |
 | [RF-406](02-requisitos.md#rf-406--no-cortar-la-sesión-por-unos-minutos) | No cortar la sesión por unos minutos | automática | `js/srs.js` | con nada vencido se adelanta el aprendizaje cercano<br>el adelanto no saca repasos antes de su día<br>sin ventana de adelanto la cola solo trae lo vencido |
 | [RF-407](02-requisitos.md#rf-407--la-pantalla-se-pone-al-día-sola) | La pantalla se pone al día sola | navegador | `js/app.js`<br>`js/srs.js` | nextAvailableAt descuenta la ventana de adelanto<br>la pantalla vacía se actualiza sola al vencer la tarjeta |
-| [RF-501](02-requisitos.md#rf-501--cambiar-los-límites-diarios) | Cambiar los límites diarios | automática | `js/app.js`<br>`js/store.js` | los límites por defecto son 20 nuevas y 200 repasos<br>los límites se cambian y persisten |
+| [RF-501](02-requisitos.md#rf-501--cambiar-el-límite-diario-de-tarjetas-nuevas) | Cambiar el límite diario de tarjetas nuevas | automática | `js/app.js`<br>`js/store.js` | el límite por defecto es de 20 nuevas al día<br>el límite se cambia y persiste, y no hay tope de repasos<br>una copia antigua pierde el tope de repasos al cargarse |
 | [RF-502](02-requisitos.md#rf-502--ver-el-progreso) | Ver el progreso | automática | `js/app.js`<br>`js/store.js` | las estadísticas cuentan aciertos y respuestas<br>sin respuestas esta semana no se inventa un 0 % |
 | [RF-503](02-requisitos.md#rf-503--borrar-todo) | Borrar todo | automática | `js/app.js`<br>`js/store.js` | borrar todo deja un mazo vacío y los ajustes por defecto |
 
@@ -82,6 +82,13 @@ en cada `npm test`.
 | [INV-108](03-motor.md#inv-108--la-dispersión-no-cambia-el-orden-de-magnitud) | La dispersión no cambia el orden de magnitud | automática | `js/srs.js` | la dispersión solo toca intervalos de 3 días o más y se queda en ±5 % |
 | [INV-109](03-motor.md#inv-109--fallar-repetidamente-mantiene-la-tarjeta-cerca) | Fallar repetidamente mantiene la tarjeta cerca | automática | `js/srs.js` | fallar una y otra vez mantiene la tarjeta a pocos días |
 | [INV-110](03-motor.md#inv-110--acertar-repetidamente-aleja-rápido) | Acertar repetidamente aleja rápido | automática | `js/srs.js` | acertar seis veces seguidas pasa del mes |
+
+## Requisitos retirados
+
+Su número no se reutiliza nunca, para que ningún enlace viejo acabe
+apuntando a otra cosa.
+
+- **RF-403** — Límite diario de repasos ~~(retirado)~~
 
 ## Comprobaciones manuales de cada versión
 

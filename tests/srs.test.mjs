@@ -239,9 +239,13 @@ test('[RF-402] la cola respeta el límite diario de tarjetas nuevas', () => {
   assert.equal(buildQueue(cards, { now: NOW, newPerDay: 0 }).length, 0);
 });
 
-test('[RF-403] la cola respeta el límite diario de repasos', () => {
-  const cards = [reviewing(5), { ...reviewing(5), id: 'c2' }];
-  assert.equal(buildQueue(cards, { now: NOW, maxReviewsPerDay: 1, newPerDay: 0 }).length, 1);
+test('[RF-401] los repasos vencidos se ofrecen todos, sin tope diario', () => {
+  const cards = Array.from({ length: 300 }, (_, i) => ({
+    ...reviewing(5),
+    id: `c${i}`,
+    due: NOW - (i + 1) * MIN,
+  }));
+  assert.equal(buildQueue(cards, { now: NOW, newPerDay: 0 }).length, 300);
 });
 
 test('[RF-404] el aprendizaje ya empezado no se corta por los límites', () => {
@@ -249,12 +253,7 @@ test('[RF-404] el aprendizaje ya empezado no se corta por los límites', () => {
     fresh({ id: 'l', state: 'learning', due: NOW - MIN }),
     fresh({ id: 'r', state: 'relearning', due: NOW - MIN, interval: 3 }),
   ];
-  const queue = buildQueue(cards, {
-    now: NOW,
-    maxReviewsPerDay: 0,
-    newPerDay: 0,
-    reviewedToday: 999,
-  });
+  const queue = buildQueue(cards, { now: NOW, newPerDay: 0, introducedToday: 999 });
   assert.equal(queue.length, 2);
 });
 
@@ -313,23 +312,15 @@ test('[RF-306] con el límite de nuevas alcanzado se dice cuántas quedan', () =
   assert.match(motivo.message, /Quedan 2/);
 });
 
-test('[RF-306] el límite de repasos solo se menciona si retiene algo', () => {
-  const conPendientes = emptyQueueReason([reviewing(5)], {
+test('[RF-306] nunca se habla de un límite de repasos', () => {
+  // Un repaso vencido nunca deja la cola vacía, así que el único motivo posible
+  // con tarjetas pendientes es el de las nuevas.
+  const motivo = emptyQueueReason([{ ...reviewing(5), due: NOW + 2 * DAY }], {
     now: NOW,
-    maxReviewsPerDay: 10,
-    reviewedToday: 10,
+    newPerDay: 20,
   });
-  assert.equal(conPendientes.code, 'limite-repasos');
-
-  // Mismo límite alcanzado, pero sin ningún repaso esperando: no toca hablar
-  // de límites, sino de cuándo vuelve la siguiente.
-  const sinPendientes = emptyQueueReason([{ ...reviewing(5), due: NOW + 2 * DAY }], {
-    now: NOW,
-    maxReviewsPerDay: 10,
-    reviewedToday: 10,
-  });
-  assert.equal(sinPendientes.code, 'al-dia');
-  assert.match(sinPendientes.message, /vuelve en 2 d/);
+  assert.equal(motivo.code, 'al-dia');
+  assert.match(motivo.message, /vuelve en 2 d/);
 });
 
 test('[RF-306] al día se dice cuándo vuelve la siguiente tarjeta', () => {

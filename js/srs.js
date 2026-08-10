@@ -264,14 +264,12 @@ function isLearning(card) {
  * tarjetas en aprendizaje que ya han vencido, y al final las nuevas del día.
  * Los límites diarios evitan que un mazo grande se convierta en un muro.
  *
- * @spec RF-401 RF-402 RF-403 RF-404 RF-406
+ * @spec RF-401 RF-402 RF-404 RF-406
  */
 export function buildQueue(cards, opts = {}) {
   const now = opts.now ?? nowMs();
   const newPerDay = opts.newPerDay ?? 20;
-  const maxReviewsPerDay = opts.maxReviewsPerDay ?? 200;
   const introducedToday = opts.introducedToday ?? 0;
-  const reviewedToday = opts.reviewedToday ?? 0;
   const lookaheadMs = opts.lookaheadMs ?? 0;
 
   const due = [];
@@ -291,10 +289,11 @@ export function buildQueue(cards, opts = {}) {
   learning.sort((a, b) => a.due - b.due);
   fresh.sort((a, b) => a.createdAt - b.createdAt || String(a.id).localeCompare(String(b.id)));
 
-  const reviewSlots = Math.max(0, maxReviewsPerDay - reviewedToday);
+  // Los repasos vencidos no se recortan: el freno está en la entrada de
+  // material nuevo, no en la salida (RF-403, retirado).
   const newSlots = Math.max(0, newPerDay - introducedToday);
 
-  const queue = [...due.slice(0, reviewSlots), ...learning, ...fresh.slice(0, newSlots)];
+  const queue = [...due, ...learning, ...fresh.slice(0, newSlots)];
   if (queue.length || !lookaheadMs) return queue;
 
   // Nada vencido: antes de dar la sesión por terminada, adelanta el
@@ -332,9 +331,7 @@ export function nextAvailableAt(cards, opts = {}) {
 export function emptyQueueReason(cards, opts = {}) {
   const now = opts.now ?? nowMs();
   const newPerDay = opts.newPerDay ?? 20;
-  const maxReviewsPerDay = opts.maxReviewsPerDay ?? 200;
   const introducedToday = opts.introducedToday ?? 0;
-  const reviewedToday = opts.reviewedToday ?? 0;
 
   if (!cards.length) {
     return { code: 'sin-tarjetas', message: 'Este mazo aún no tiene tarjetas.' };
@@ -346,14 +343,6 @@ export function emptyQueueReason(cards, opts = {}) {
     return {
       code: 'limite-nuevas',
       message: `Has alcanzado el límite de ${newPerDay} tarjetas nuevas de hoy. Quedan ${c.nuevas} sin empezar.`,
-    };
-  }
-
-  // Solo se menciona el límite de repasos si de verdad está reteniendo algo.
-  if (c.repaso > 0 && reviewedToday >= maxReviewsPerDay) {
-    return {
-      code: 'limite-repasos',
-      message: `Has alcanzado el límite de ${maxReviewsPerDay} repasos de hoy. Quedan ${c.repaso} pendientes.`,
     };
   }
 

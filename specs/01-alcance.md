@@ -28,7 +28,7 @@ De ahí salen tres decisiones que atraviesan todo el diseño:
 1. Crear tarjetas a mano e importarlas en bloque desde texto, CSV, TSV o JSON.
 2. Organizarlas en mazos.
 3. Estudiar con repetición espaciada y cuatro niveles de respuesta.
-4. Límites diarios para que un mazo grande no abrume.
+4. Un límite diario de tarjetas nuevas para que un mazo grande no abrume.
 5. Copia de seguridad exportable e importable.
 6. Uso sin conexión e instalación en la pantalla de inicio del móvil.
 

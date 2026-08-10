@@ -262,18 +262,30 @@ test('[RF-209] un fichero sin tarjetas se rechaza con un error claro', () => {
 
 // --- Ajustes y progreso ---------------------------------------------------
 
-test('[RF-501] los límites por defecto son 20 nuevas y 200 repasos', () => {
+test('[RF-501] el límite por defecto es de 20 nuevas al día', () => {
   limpiar();
   assert.equal(store.settings().newPerDay, 20);
-  assert.equal(store.settings().maxReviewsPerDay, 200);
 });
 
-test('[RF-501] los límites se cambian y persisten', () => {
+test('[RF-501] el límite se cambia y persiste, y no hay tope de repasos', () => {
   limpiar();
-  store.updateSettings({ newPerDay: 5, maxReviewsPerDay: 50 });
+  store.updateSettings({ newPerDay: 5 });
   store.reload();
   assert.equal(store.settings().newPerDay, 5);
-  assert.equal(store.settings().maxReviewsPerDay, 50);
+  assert.equal(store.settings().maxReviewsPerDay, undefined);
+});
+
+test('[RF-501] una copia antigua pierde el tope de repasos al cargarse', () => {
+  limpiar();
+  store.importState({
+    version: 1,
+    decks: [{ id: 'd1', name: 'Viejo' }],
+    cards: [],
+    settings: { newPerDay: 20, maxReviewsPerDay: 200, cutoffHour: 4 },
+    daily: { day: 0, introduced: 0, reviewed: 41 },
+  });
+  assert.equal(store.settings().maxReviewsPerDay, undefined);
+  assert.equal(store.daily().reviewed, undefined);
 });
 
 test('[RF-502] las estadísticas cuentan aciertos y respuestas', () => {
@@ -315,12 +327,9 @@ test('[RF-405] los contadores del día se reinician al pasar de las 4:00', () =>
   const card = store.addCard({ deckId: mazoPorDefecto(), front: 'a', back: 'b' });
   store.recordReview(card, review(card, GRADE.GOOD), GRADE.GOOD);
   assert.equal(store.daily().introduced, 1);
-  assert.equal(store.daily().reviewed, 1);
 
   const manana = Date.now() + 24 * 3600 * 1000;
-  const diario = store.rollDay(manana);
-  assert.equal(diario.introduced, 0);
-  assert.equal(diario.reviewed, 0);
+  assert.equal(store.rollDay(manana).introduced, 0);
 });
 
 // --- Robustez -------------------------------------------------------------

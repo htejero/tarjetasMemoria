@@ -9,7 +9,6 @@ const HISTORY_LIMIT = 5000;
 
 export const DEFAULT_SETTINGS = Object.freeze({
   newPerDay: 20,
-  maxReviewsPerDay: 200,
   cutoffHour: 4,
 });
 
@@ -20,7 +19,7 @@ function emptyState() {
     decks: [{ id: deckId, name: 'General', createdAt: nowMs() }],
     cards: [],
     settings: { ...DEFAULT_SETTINGS },
-    daily: { day: dayStart(nowMs()), introduced: 0, reviewed: 0 },
+    daily: { day: dayStart(nowMs()), introduced: 0 },
     history: [],
   };
 }
@@ -82,6 +81,9 @@ function migrate(data) {
   merged.decks = Array.isArray(merged.decks) && merged.decks.length ? merged.decks : base.decks;
   merged.cards = Array.isArray(merged.cards) ? merged.cards : [];
   merged.history = Array.isArray(merged.history) ? merged.history : [];
+  // Restos de cuando existía el límite diario de repasos (RF-403, retirado).
+  delete merged.settings.maxReviewsPerDay;
+  delete merged.daily.reviewed;
   // Las tarjetas huérfanas (mazo borrado o inexistente) van al primer mazo.
   const ids = new Set(merged.decks.map((d) => d.id));
   for (const card of merged.cards) {
@@ -100,7 +102,7 @@ export function rollDay(now = nowMs()) {
   const s = state;
   const today = dayStart(now, s.settings.cutoffHour);
   if (s.daily.day !== today) {
-    s.daily = { day: today, introduced: 0, reviewed: 0 };
+    s.daily = { day: today, introduced: 0 };
     save();
   }
   return s.daily;
@@ -204,7 +206,6 @@ export function recordReview(previous, updated, grade) {
 
   rollDay();
   if (previous.state === 'new') s.daily.introduced += 1;
-  s.daily.reviewed += 1;
 
   s.history.push({ ts: nowMs(), cardId: updated.id, grade, interval: updated.interval });
   if (s.history.length > HISTORY_LIMIT) s.history = s.history.slice(-HISTORY_LIMIT);

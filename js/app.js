@@ -103,9 +103,7 @@ function scheduling() {
   return {
     now: nowMs(),
     newPerDay: s.newPerDay,
-    maxReviewsPerDay: s.maxReviewsPerDay,
     introducedToday: daily.introduced,
-    reviewedToday: daily.reviewed,
     lookaheadMs: DEFAULT_LOOKAHEAD_MS,
   };
 }
@@ -399,7 +397,6 @@ function readFile(input, onText) {
 function renderSettings() {
   const s = store.settings();
   $('#set-new').value = s.newPerDay;
-  $('#set-max').value = s.maxReviewsPerDay;
 
   const ul = $('#deck-list');
   ul.innerHTML = '';
@@ -521,13 +518,6 @@ function bind() {
     e.target.value = value;
     renderCounters();
   });
-  $('#set-max').addEventListener('change', (e) => {
-    const value = Math.max(0, Number(e.target.value) || 0);
-    store.updateSettings({ maxReviewsPerDay: value });
-    e.target.value = value;
-    renderCounters();
-  });
-
   $('#btn-add-deck').addEventListener('click', () => {
     const input = $('#new-deck-name');
     const name = input.value.trim();

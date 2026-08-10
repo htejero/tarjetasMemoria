@@ -39,13 +39,11 @@ No hay servidor, ni cookies, ni identificadores ([RNF-104](02-requisitos.md)).
   ],
   "settings": {
     "newPerDay": 20,
-    "maxReviewsPerDay": 200,
     "cutoffHour": 4
   },
   "daily": {
     "day": 1767243600000,         // inicio del día de estudio en curso
-    "introduced": 3,              // nuevas introducidas hoy
-    "reviewed": 41                // respuestas dadas hoy
+    "introduced": 3               // nuevas introducidas hoy
   },
   "history": [
     { "ts": 1767225600000, "cardId": "uuid", "grade": 2, "interval": 12 }
@@ -62,7 +60,11 @@ No hay servidor, ni cookies, ni identificadores ([RNF-104](02-requisitos.md)).
    `deckId` no exista se reasigna al primer mazo en vez de desaparecer.
 3. **Siempre hay al menos un mazo** ([RF-106](02-requisitos.md)).
 4. **`daily`** se reinicia solo cuando cambia el día de estudio, que empieza a
-   `cutoffHour` ([RF-405](02-requisitos.md)).
+   `cutoffHour` ([RF-405](02-requisitos.md)). Solo lleva la cuenta de las
+   tarjetas nuevas introducidas: los repasos no se limitan
+   ([RF-403](02-requisitos.md), retirado), así que no hay nada que contar.
+   Las copias de seguridad antiguas traen un `maxReviewsPerDay` y un `reviewed`
+   que se descartan al cargarlas.
 5. **`history`** se recorta a las 5000 respuestas más recientes. Sirve para las
    estadísticas ([RF-502](02-requisitos.md)), no para reconstruir el estado, así
    que perder la cola vieja no rompe nada. El tope evita que el almacenamiento

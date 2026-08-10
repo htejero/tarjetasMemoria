@@ -6,7 +6,7 @@
 // Comprueba tres cosas:
 //   1. Todo requisito de verificación automática o de navegador tiene al menos
 //      una prueba que lo nombra.
-//   2. Ninguna prueba nombra un identificador que no existe en la especificación.
+//   2. Ninguna prueba nombra un identificador que no existe, ni uno retirado.
 //   3. Ningún identificador está declarado dos veces.
 
 import { readdir, readFile, writeFile } from 'node:fs/promises';
@@ -19,7 +19,7 @@ const SALIDA = join(SPECS, '05-trazabilidad.md');
 
 const ID = /\b(RF|RNF|INV)-\d{3}\b/g;
 const TITULO = /^###\s+((?:RF|RNF|INV)-\d{3})\s+—\s+(.+?)\s*$/;
-const VERIFICACION = /^\*\*Verificación:\*\*\s*(automática|navegador|manual)/;
+const VERIFICACION = /^\*\*Verificación:\*\*\s*(automática|navegador|manual|retirado)/;
 const MANUAL_EXTRA = /^\*\*Procedimiento manual/;
 
 // Solo el código que se ejecuta en el navegador implementa requisitos.
@@ -132,7 +132,7 @@ function generarInforme(requisitos) {
   ];
 
   const todos = [...requisitos.values()];
-  const auto = todos.filter((r) => r.verificacion !== 'manual');
+  const auto = todos.filter((r) => !['manual', 'retirado'].includes(r.verificacion));
   const cubiertos = auto.filter((r) => r.pruebas.length);
   const pruebasTotales = new Set(
     todos.flatMap((r) => r.pruebas.map((p) => `${p.fichero}::${p.nombre}`)),
@@ -144,13 +144,14 @@ function generarInforme(requisitos) {
     `| Requisitos especificados | ${todos.length} |`,
     `| De verificación automática o de navegador | ${auto.length} |`,
     `| Cubiertos por al menos una prueba | ${cubiertos.length} |`,
-    `| De verificación manual | ${todos.length - auto.length} |`,
+    `| De verificación manual | ${todos.filter((r) => r.verificacion === 'manual').length} |`,
+    `| Retirados | ${todos.filter((r) => r.verificacion === 'retirado').length} |`,
     `| Pruebas distintas implicadas | ${pruebasTotales.size} |`,
     '',
   );
 
   for (const clave of ['RF', 'RNF', 'INV']) {
-    const grupo = todos.filter((r) => familia(r.id) === clave);
+    const grupo = todos.filter((r) => familia(r.id) === clave && r.verificacion !== 'retirado');
     if (!grupo.length) continue;
     lineas.push(`## ${NOMBRES[clave]}`, '');
     lineas.push('| Id | Requisito | Verificación | Código | Pruebas |');
@@ -170,6 +171,19 @@ function generarInforme(requisitos) {
       lineas.push(`| [${r.id}](${ancla}) | ${r.texto} | ${r.verificacion} | ${codigo} | ${pruebas} |`);
     }
     lineas.push('');
+  }
+
+  const retirados = todos.filter((r) => r.verificacion === 'retirado');
+  if (retirados.length) {
+    lineas.push(
+      '## Requisitos retirados',
+      '',
+      'Su número no se reutiliza nunca, para que ningún enlace viejo acabe',
+      'apuntando a otra cosa.',
+      '',
+      ...retirados.map((r) => `- **${r.id}** — ${r.texto}`),
+      '',
+    );
   }
 
   const manuales = todos.filter((r) => r.verificacion === 'manual' || r.manualExtra);
@@ -209,7 +223,11 @@ for (const { id, fichero, nombre } of desconocidos) {
 for (const r of requisitos.values()) {
   if (r.verificacion === 'sin declarar') {
     problemas.push(`${r.id} no declara cómo se verifica.`);
-  } else if (r.verificacion !== 'manual' && !r.pruebas.length) {
+  } else if (r.verificacion === 'retirado' && r.pruebas.length) {
+    problemas.push(
+      `${r.id} está retirado pero todavía lo citan ${r.pruebas.length} prueba(s).`,
+    );
+  } else if (!['manual', 'retirado'].includes(r.verificacion) && !r.pruebas.length) {
     problemas.push(`${r.id} (${r.texto}) es de verificación ${r.verificacion} y no tiene pruebas.`);
   }
 }
@@ -219,7 +237,9 @@ if (!soloComprobar) {
   console.log(`Escrito ${relative(ROOT, SALIDA)}`);
 }
 
-const auto = [...requisitos.values()].filter((r) => r.verificacion !== 'manual');
+const auto = [...requisitos.values()].filter(
+  (r) => !['manual', 'retirado'].includes(r.verificacion),
+);
 const cubiertos = auto.filter((r) => r.pruebas.length).length;
 console.log(
   `Trazabilidad: ${requisitos.size} requisitos, ${cubiertos}/${auto.length} verificables cubiertos.`,

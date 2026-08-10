@@ -120,8 +120,10 @@ Además:
 - Los intervalos largos llevan una dispersión de ±5 % para que no se te
   acumulen todas las tarjetas el mismo día.
 - El día de estudio empieza a las 4 de la mañana, no a medianoche.
-- Hay límites diarios (por defecto 20 nuevas y 200 repasos) para que un mazo
-  grande recién importado no se convierta en un muro. Se cambian en *Ajustes*.
+- Hay un límite diario de tarjetas **nuevas** (20 por defecto, se cambia en
+  *Ajustes*) para que un mazo grande recién importado no se convierta en un
+  muro. Los repasos que toquen se muestran todos: no hay tope, porque aplazar
+  algo que estás a punto de olvidar es justo lo contrario de lo que se busca.
 - Lo que ya has empezado a aprender se termina aunque hayas llegado al límite.
 
 ## Cómo se desarrolla: la especificación manda
@@ -133,7 +135,7 @@ fuente de verdad, y el código existe para cumplirla.
 | Documento | Qué contiene |
 | --- | --- |
 | [`specs/01-alcance.md`](specs/01-alcance.md) | Para qué es esto, qué queda fuera y por qué |
-| [`specs/02-requisitos.md`](specs/02-requisitos.md) | 45 requisitos con criterios de aceptación |
+| [`specs/02-requisitos.md`](specs/02-requisitos.md) | 44 requisitos vigentes con criterios de aceptación |
 | [`specs/03-motor.md`](specs/03-motor.md) | El algoritmo: estados, transiciones y 10 invariantes |
 | [`specs/04-datos.md`](specs/04-datos.md) | Esquema guardado y gramática de los formatos |
 | [`specs/05-trazabilidad.md`](specs/05-trazabilidad.md) | Matriz generada: qué prueba cubre qué requisito |
@@ -177,7 +179,7 @@ puede probar con Node directamente y por eso sería reutilizable si algún día 
 app pasa a nativa.
 
 ```bash
-npm test        # 91 pruebas + comprobación de trazabilidad, sin dependencias
+npm test        # 92 pruebas + comprobación de trazabilidad, sin dependencias
 npm run spec    # regenera specs/05-trazabilidad.md
 npm run test:ui # 20 pruebas de interfaz (necesita Playwright)
 ```
