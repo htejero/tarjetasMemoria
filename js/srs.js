@@ -83,6 +83,8 @@ export function createCard({ id, deckId, front, back, tags = [], createdAt = now
 
 /**
  * Aplica una respuesta a una tarjeta y devuelve la tarjeta actualizada.
+ *
+ * @spec INV-101 INV-103 INV-104 INV-105 INV-106 INV-107 INV-108 INV-109 INV-110
  * @param {object} card
  * @param {number} grade  uno de GRADE
  * @param {object} [opts] { now, config, rng }
@@ -143,9 +145,13 @@ function graduate(next, card, config, now, easy, state) {
   next.state = 'review';
   next.step = 0;
   if (state === 'relearning') {
-    // Vuelve al intervalo reducido que se guardó al fallar; "Fácil" lo premia.
-    const base = Math.max(config.minLapseInterval, card.interval || config.graduatingInterval);
-    next.interval = clampInterval(easy ? base * config.easyBonus : base, config);
+    // Vuelve al intervalo reducido que se guardó al fallar; "Fácil" lo premia
+    // con al menos un día más, para no empatar con "Bien" (INV-102).
+    const base = clampInterval(
+      Math.max(config.minLapseInterval, card.interval || config.graduatingInterval),
+      config,
+    );
+    next.interval = easy ? clampInterval(Math.max(base * config.easyBonus, base + 1), config) : base;
   } else {
     next.interval = clampInterval(easy ? config.easyInterval : config.graduatingInterval, config);
   }
@@ -169,26 +175,31 @@ function scheduleReview(next, card, grade, config, now, rng) {
     return next;
   }
 
+  // Los tres intervalos se calculan encadenados —cada uno al menos un día por
+  // encima del anterior— para que los tres botones nunca den el mismo plazo,
+  // ni siquiera con la facilidad en el suelo o con intervalos de un día
+  // (INV-102, INV-104). El único empate posible es al llegar al techo.
+  const hard = clampInterval(Math.max(prev * config.hardFactor, prev + 1), config);
+  const good = clampInterval(Math.max(prev * card.ease, hard + 1), config);
+  const easy = clampInterval(Math.max(prev * card.ease * config.easyBonus, good + 1), config);
+
   let ease = card.ease;
   let days;
 
   if (grade === GRADE.HARD) {
     ease = clampEase(card.ease - 0.15, config);
-    days = prev * config.hardFactor;
+    days = hard;
   } else if (grade === GRADE.GOOD) {
-    days = prev * card.ease;
+    days = good;
   } else {
     ease = clampEase(card.ease + 0.15, config);
-    days = prev * card.ease * config.easyBonus;
+    days = easy;
   }
-
-  // Garantiza progreso: siempre al menos un día más que el intervalo anterior.
-  days = Math.max(days, prev + 1);
 
   next.state = 'review';
   next.step = 0;
   next.ease = ease;
-  next.interval = clampInterval(applyFuzz(clampInterval(days, config), config, rng), config);
+  next.interval = clampInterval(applyFuzz(days, config, rng), config);
   next.due = now + next.interval * DAY;
   return next;
 }
@@ -196,6 +207,8 @@ function scheduleReview(next, card, grade, config, now, rng) {
 /**
  * Calcula, sin modificar nada, cuándo volvería cada tarjeta según la respuesta.
  * Se usa para pintar el intervalo debajo de cada botón.
+ *
+ * @spec INV-102
  */
 export function previewIntervals(card, opts = {}) {
   const config = { ...DEFAULT_CONFIG, ...(opts.config || {}) };
@@ -221,7 +234,11 @@ export function formatDelay(ms) {
   return `${(days / 365.25).toFixed(1).replace('.', ',')} años`;
 }
 
-/** Momento en el que empieza el "día de estudio" (por defecto, las 4 de la mañana). */
+/**
+ * Momento en el que empieza el "día de estudio" (por defecto, las 4 de la mañana).
+ *
+ * @spec RF-405
+ */
 export function dayStart(ts, cutoffHour = 4) {
   const d = new Date(ts);
   if (d.getHours() < cutoffHour) d.setDate(d.getDate() - 1);
@@ -233,12 +250,21 @@ export function isDue(card, now = nowMs()) {
   return card.due <= now;
 }
 
+/** Ventana por defecto para adelantar el aprendizaje (RF-406). */
+export const DEFAULT_LOOKAHEAD_MS = 20 * 60 * 1000;
+
+function isLearning(card) {
+  return card.state === 'learning' || card.state === 'relearning';
+}
+
 /**
  * Construye la cola de estudio del momento.
  *
  * Prioridad: primero lo que ya toca repasar (lo más atrasado antes), luego las
  * tarjetas en aprendizaje que ya han vencido, y al final las nuevas del día.
  * Los límites diarios evitan que un mazo grande se convierta en un muro.
+ *
+ * @spec RF-401 RF-402 RF-403 RF-404 RF-406
  */
 export function buildQueue(cards, opts = {}) {
   const now = opts.now ?? nowMs();
@@ -246,6 +272,7 @@ export function buildQueue(cards, opts = {}) {
   const maxReviewsPerDay = opts.maxReviewsPerDay ?? 200;
   const introducedToday = opts.introducedToday ?? 0;
   const reviewedToday = opts.reviewedToday ?? 0;
+  const lookaheadMs = opts.lookaheadMs ?? 0;
 
   const due = [];
   const learning = [];
@@ -267,7 +294,77 @@ export function buildQueue(cards, opts = {}) {
   const reviewSlots = Math.max(0, maxReviewsPerDay - reviewedToday);
   const newSlots = Math.max(0, newPerDay - introducedToday);
 
-  return [...due.slice(0, reviewSlots), ...learning, ...fresh.slice(0, newSlots)];
+  const queue = [...due.slice(0, reviewSlots), ...learning, ...fresh.slice(0, newSlots)];
+  if (queue.length || !lookaheadMs) return queue;
+
+  // Nada vencido: antes de dar la sesión por terminada, adelanta el
+  // aprendizaje que está a punto de tocar. Los repasos esperan a su día.
+  return cards
+    .filter((card) => isLearning(card) && card.due > now && card.due <= now + lookaheadMs)
+    .sort((a, b) => a.due - b.due);
+}
+
+/**
+ * Instante en el que la primera tarjeta pasará a estar disponible, o null si no
+ * hay ninguna esperando. Sirve para refrescar la pantalla sola (RF-407).
+ *
+ * @spec RF-407
+ */
+export function nextAvailableAt(cards, opts = {}) {
+  const now = opts.now ?? nowMs();
+  const lookaheadMs = opts.lookaheadMs ?? 0;
+  let best = null;
+  for (const card of cards) {
+    if (card.state === 'new') continue;
+    const at = isLearning(card) ? card.due - lookaheadMs : card.due;
+    if (at <= now) return now;
+    if (best == null || at < best) best = at;
+  }
+  return best;
+}
+
+/**
+ * Por qué no hay nada que estudiar. Devuelve un código estable (para poder
+ * probarlo) y el texto que se enseña.
+ *
+ * @spec RF-306
+ */
+export function emptyQueueReason(cards, opts = {}) {
+  const now = opts.now ?? nowMs();
+  const newPerDay = opts.newPerDay ?? 20;
+  const maxReviewsPerDay = opts.maxReviewsPerDay ?? 200;
+  const introducedToday = opts.introducedToday ?? 0;
+  const reviewedToday = opts.reviewedToday ?? 0;
+
+  if (!cards.length) {
+    return { code: 'sin-tarjetas', message: 'Este mazo aún no tiene tarjetas.' };
+  }
+
+  const c = counts(cards, { now });
+
+  if (c.nuevas > 0 && introducedToday >= newPerDay) {
+    return {
+      code: 'limite-nuevas',
+      message: `Has alcanzado el límite de ${newPerDay} tarjetas nuevas de hoy. Quedan ${c.nuevas} sin empezar.`,
+    };
+  }
+
+  // Solo se menciona el límite de repasos si de verdad está reteniendo algo.
+  if (c.repaso > 0 && reviewedToday >= maxReviewsPerDay) {
+    return {
+      code: 'limite-repasos',
+      message: `Has alcanzado el límite de ${maxReviewsPerDay} repasos de hoy. Quedan ${c.repaso} pendientes.`,
+    };
+  }
+
+  const next = nextAvailableAt(cards, { now });
+  if (next != null && next > now) {
+    return {
+      code: 'al-dia',
+      message: `Todo repasado. La siguiente tarjeta vuelve en ${formatDelay(next - now)}.`,
+    };
+  }
+  return { code: 'al-dia', message: 'Todo repasado por hoy.' };
 }
 
 /** Contadores para la cabecera de la sesión. */

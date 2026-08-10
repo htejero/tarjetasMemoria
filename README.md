@@ -96,6 +96,9 @@ Hace falta un servidor: la app usa módulos de JavaScript y no funciona abriendo
 
 ## Cómo decide cuándo repetir
 
+La especificación completa del algoritmo, con la tabla de transiciones y los
+invariantes, está en [`specs/03-motor.md`](specs/03-motor.md). En resumen:
+
 Variante de **SM-2** (el algoritmo clásico de Anki y SuperMemo) con pasos de
 aprendizaje. Cada tarjeta lleva un *intervalo* (días hasta el próximo repaso) y
 una *facilidad* (multiplicador, empieza en 2,5 y nunca baja de 1,3).
@@ -121,6 +124,35 @@ Además:
   grande recién importado no se convierta en un muro. Se cambian en *Ajustes*.
 - Lo que ya has empezado a aprender se termina aunque hayas llegado al límite.
 
+## Cómo se desarrolla: la especificación manda
+
+El proyecto se construye con **desarrollo dirigido por especificación**. La
+carpeta [`specs/`](specs/) no es documentación escrita a posteriori: es la
+fuente de verdad, y el código existe para cumplirla.
+
+| Documento | Qué contiene |
+| --- | --- |
+| [`specs/01-alcance.md`](specs/01-alcance.md) | Para qué es esto, qué queda fuera y por qué |
+| [`specs/02-requisitos.md`](specs/02-requisitos.md) | 45 requisitos con criterios de aceptación |
+| [`specs/03-motor.md`](specs/03-motor.md) | El algoritmo: estados, transiciones y 10 invariantes |
+| [`specs/04-datos.md`](specs/04-datos.md) | Esquema guardado y gramática de los formatos |
+| [`specs/05-trazabilidad.md`](specs/05-trazabilidad.md) | Matriz generada: qué prueba cubre qué requisito |
+
+Cada requisito tiene un identificador estable (`RF-205`, `INV-102`) que aparece
+en tres sitios: la ficha del requisito, un comentario `@spec` en la función que
+lo implementa y el nombre de la prueba que lo demuestra.
+
+```js
+test('[RF-205] no se importan preguntas que ya existen en el mazo', () => { … })
+```
+
+Ese vínculo no es decorativo: `npm test` ejecuta las pruebas **y** comprueba la
+trazabilidad, y **falla** si algún requisito verificable se queda sin prueba, si
+una prueba cita un identificador inexistente o si un identificador está
+duplicado. El orden de trabajo para cualquier cambio es: especificar → escribir
+la prueba que falla → implementar → verificar. Está detallado en
+[`specs/README.md`](specs/README.md).
+
 ## El proyecto por dentro
 
 ```
@@ -131,9 +163,12 @@ js/store.js             guardado en localStorage
 js/parse.js             lectura de texto pegado y ficheros
 js/app.js               la interfaz
 sw.js                   caché para funcionar sin conexión
+specs/                  la especificación y la matriz de trazabilidad
+tests/                  pruebas con Node: motor, datos, formatos y proyecto
+tests/ui/               pruebas de interfaz sobre Chromium
 tools/serve.mjs         servidor local
 tools/make-icons.mjs    genera los iconos PNG
-tests/                  pruebas del motor y del importador
+tools/trazabilidad.mjs  ata especificación, código y pruebas
 ejemplos/               mazos de ejemplo
 ```
 
@@ -142,7 +177,16 @@ puede probar con Node directamente y por eso sería reutilizable si algún día 
 app pasa a nativa.
 
 ```bash
-npm test      # 40 pruebas, sin dependencias
+npm test        # 91 pruebas + comprobación de trazabilidad, sin dependencias
+npm run spec    # regenera specs/05-trazabilidad.md
+npm run test:ui # 20 pruebas de interfaz (necesita Playwright)
+```
+
+Las pruebas de interfaz son lo único que necesita una dependencia, y solo de
+desarrollo: si Playwright no está instalado, se saltan con un aviso.
+
+```bash
+npm install --no-save playwright && npm run test:ui
 ```
 
 ## Posibles pasos siguientes

@@ -1,10 +1,13 @@
 // Pegamento entre el motor de repetición, el almacenamiento y la pantalla.
 
 import {
+  DEFAULT_LOOKAHEAD_MS,
   GRADE_LABELS,
   buildQueue,
   counts,
+  emptyQueueReason,
   formatDelay,
+  nextAvailableAt,
   nowMs,
   previewIntervals,
   review,
@@ -24,9 +27,10 @@ const ui = {
   editing: null,
 };
 
-// Ventana en la que se adelantan las tarjetas de aprendizaje cuando no queda
-// nada más pendiente, para no cortar la sesión por un minuto de espera.
-const LOOKAHEAD_MS = 20 * 60 * 1000;
+// Si lo próximo entra dentro de esta ventana, la pantalla vacía se refresca
+// sola en lugar de quedarse mintiendo (RF-407).
+const AUTO_REFRESH_MAX_MS = 30 * 60 * 1000;
+let refreshTimer = null;
 
 // --- Utilidades ----------------------------------------------------------
 
@@ -61,6 +65,7 @@ function showView(name) {
 
 // --- Cabecera ------------------------------------------------------------
 
+/** @spec RF-108 */
 function renderDeckSelect() {
   const select = $('#deck-select');
   const decks = store.decks();
@@ -91,31 +96,44 @@ function renderCounters() {
 
 // --- Estudiar ------------------------------------------------------------
 
-function nextCard() {
+/** Opciones de programación derivadas de los ajustes y del día en curso. */
+function scheduling() {
   const daily = store.daily();
   const s = store.settings();
-  const cards = deckCards();
-  const now = nowMs();
-
-  const queue = buildQueue(cards, {
-    now,
+  return {
+    now: nowMs(),
     newPerDay: s.newPerDay,
     maxReviewsPerDay: s.maxReviewsPerDay,
     introducedToday: daily.introduced,
     reviewedToday: daily.reviewed,
-  });
+    lookaheadMs: DEFAULT_LOOKAHEAD_MS,
+  };
+}
 
-  let candidates = queue;
-  if (!candidates.length) {
-    // Nada vencido: adelanta lo que esté a punto de tocar.
-    candidates = cards
-      .filter((c) => c.state !== 'new' && c.state !== 'review' && c.due <= now + LOOKAHEAD_MS)
-      .sort((a, b) => a.due - b.due);
-  }
+/** @spec RF-305 */
+function nextCard() {
+  const candidates = buildQueue(deckCards(), scheduling());
   if (!candidates.length) return null;
+  // Con más de una tarjeta disponible, no repetir la recién respondida.
+  return candidates.find((c) => c.id !== ui.lastCardId) || candidates[0];
+}
 
-  const other = candidates.find((c) => c.id !== ui.lastCardId);
-  return other || candidates[0];
+/**
+ * Programa un refresco para cuando la siguiente tarjeta esté disponible, si es
+ * pronto. Sin esto, la pantalla vacía se quedaría congelada.
+ *
+ * @spec RF-407
+ */
+function scheduleAutoRefresh() {
+  clearTimeout(refreshTimer);
+  const now = nowMs();
+  const at = nextAvailableAt(deckCards(), { now, lookaheadMs: DEFAULT_LOOKAHEAD_MS });
+  if (at == null) return;
+  const delay = at - now;
+  if (delay <= 0 || delay > AUTO_REFRESH_MAX_MS) return;
+  refreshTimer = setTimeout(() => {
+    if (ui.view === 'study') renderStudy();
+  }, delay + 500);
 }
 
 function renderStudy() {
@@ -130,9 +148,12 @@ function renderStudy() {
   if (!card) {
     area.classList.add('hidden');
     empty.classList.remove('hidden');
-    $('#study-empty-detail').textContent = emptyReason();
+    $('#study-empty-detail').textContent = emptyQueueReason(deckCards(), scheduling()).message;
+    scheduleAutoRefresh();
     return;
   }
+
+  clearTimeout(refreshTimer);
 
   empty.classList.add('hidden');
   area.classList.remove('hidden');
@@ -145,27 +166,7 @@ function renderStudy() {
   $('#grades').classList.add('hidden');
 }
 
-function emptyReason() {
-  const total = deckCards().length;
-  if (!total) return 'Este mazo aún no tiene tarjetas.';
-
-  const s = store.settings();
-  const daily = store.daily();
-  const c = counts(deckCards());
-  if (c.nuevas > 0 && daily.introduced >= s.newPerDay) {
-    return `Has alcanzado el límite de ${s.newPerDay} tarjetas nuevas de hoy. Quedan ${c.nuevas} sin empezar.`;
-  }
-  if (daily.reviewed >= s.maxReviewsPerDay) {
-    return `Has alcanzado el límite de ${s.maxReviewsPerDay} repasos de hoy.`;
-  }
-
-  const next = deckCards()
-    .filter((card) => card.state !== 'new')
-    .sort((a, b) => a.due - b.due)[0];
-  if (next) return `Todo repasado. La siguiente tarjeta vuelve en ${formatDelay(next.due - nowMs())}.`;
-  return 'Todo repasado por hoy.';
-}
-
+/** @spec RF-301 RF-302 RF-304 */
 function reveal() {
   if (!ui.card || ui.revealed) return;
   ui.revealed = true;
@@ -181,6 +182,7 @@ function reveal() {
   }
 }
 
+/** @spec RF-303 RF-305 */
 function answer(grade) {
   if (!ui.card || !ui.revealed) return;
   const previous = ui.card;
@@ -200,6 +202,7 @@ function describeState(card) {
   return `en ${formatDelay(delta)}`;
 }
 
+/** @spec RF-104 RF-105 */
 function renderCardList() {
   const query = $('#card-search').value.trim().toLowerCase();
   const all = deckCards();
@@ -266,10 +269,22 @@ function renderCardList() {
 
 // --- Editor --------------------------------------------------------------
 
+/** @spec RF-101 RF-102 RF-109 */
 function openEditor(card = null) {
   ui.editing = card;
   const dialog = $('#editor');
   $('#editor-title').textContent = card ? 'Editar tarjeta' : 'Nueva tarjeta';
+
+  // Reiniciar solo tiene sentido en una tarjeta que ya se ha estudiado.
+  const estudiada = Boolean(card && card.state !== 'new');
+  $('#editor-reset').classList.toggle('hidden', !estudiada);
+  const progreso = $('#editor-progress');
+  progreso.classList.toggle('hidden', !card);
+  if (card) {
+    progreso.textContent = estudiada
+      ? `${describeState(card)} · ${card.reps} repasos · ${card.lapses} fallos`
+      : 'Sin estudiar todavía.';
+  }
   $('#editor-front').value = card?.front ?? '';
   $('#editor-back').value = card?.back ?? '';
   $('#editor-tags').value = card?.tags?.join(', ') ?? '';
@@ -313,6 +328,7 @@ function saveEditor() {
 
 // --- Importar / exportar -------------------------------------------------
 
+/** @spec RF-204 RF-206 RF-209 */
 function doImport(text) {
   const out = $('#import-feedback');
   let parsed;
@@ -340,32 +356,11 @@ function doImport(text) {
     return;
   }
 
-  // Mazo destino: el seleccionado, el que venga en el fichero, o el primero.
-  let deckId = ui.deckId;
-  if (!deckId && parsed.deckName) {
-    const existing = store.decks().find((d) => d.name === parsed.deckName);
-    deckId = (existing || store.addDeck(parsed.deckName)).id;
-  }
-  if (!deckId) deckId = store.decks()[0].id;
-
-  const existing = new Set(store.cards(deckId).map((c) => c.front.trim().toLowerCase()));
-  let added = 0;
-  let skipped = 0;
-  for (const card of parsed.cards) {
-    const key = card.front.trim().toLowerCase();
-    if (existing.has(key)) {
-      skipped += 1;
-      continue;
-    }
-    existing.add(key);
-    store.addCard({ deckId, front: card.front, back: card.back, tags: card.tags });
-    added += 1;
-  }
+  const { added, skipped, deckName } = store.importCards(parsed, ui.deckId);
 
   renderDeckSelect();
   renderCounters();
   $('#import-text').value = '';
-  const deckName = store.decks().find((d) => d.id === deckId)?.name ?? '';
   feedback(
     out,
     `Añadidas ${added} tarjetas a "${deckName}"` +
@@ -400,6 +395,7 @@ function readFile(input, onText) {
 
 // --- Ajustes -------------------------------------------------------------
 
+/** @spec RF-106 RF-501 RF-502 RF-503 */
 function renderSettings() {
   const s = store.settings();
   $('#set-new').value = s.newPerDay;
@@ -489,6 +485,18 @@ function bind() {
   $('#card-search').addEventListener('input', renderCardList);
   $('#btn-new-card').addEventListener('click', () => openEditor(null));
 
+  $('#editor-reset').addEventListener('click', () => {
+    if (!ui.editing) return;
+    if (!confirm('La tarjeta volverá a empezar como si fuera nueva. ¿Seguir?')) return;
+    store.resetCard(ui.editing.id);
+    ui.editing = null;
+    $('#editor').close();
+    toast('Progreso reiniciado');
+    renderCounters();
+    if (ui.view === 'cards') renderCardList();
+    if (ui.view === 'study') renderStudy();
+  });
+
   $('#editor-form').addEventListener('submit', (e) => {
     // El botón "Cancelar" cierra el diálogo sin guardar.
     if (e.submitter?.value !== 'save') return;
@@ -502,10 +510,9 @@ function bind() {
       doImport(text);
     }),
   );
-  $('#btn-export').addEventListener('click', () => {
-    const stamp = new Date().toISOString().slice(0, 10);
-    download(`tarjetas-${stamp}.json`, store.exportState());
-  });
+  $('#btn-export').addEventListener('click', () =>
+    download(store.backupFilename(), store.exportState()),
+  );
   $('#restore-file').addEventListener('change', (e) => readFile(e.target, doImport));
 
   $('#set-new').addEventListener('change', (e) => {

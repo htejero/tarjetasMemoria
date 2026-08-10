@@ -45,17 +45,32 @@ export function load() {
   return state;
 }
 
+/**
+ * Olvida el estado en memoria y lo vuelve a leer del almacenamiento. Hace falta
+ * cuando otra pestaña ha escrito, y en las pruebas para empezar de cero.
+ */
+export function reload() {
+  state = null;
+  return load();
+}
+
 export function save() {
   if (!state) return;
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
   } catch (err) {
     console.error('No se pudo guardar', err);
-    alert('No se pudo guardar. Puede que el almacenamiento del navegador esté lleno.');
+    globalThis.alert?.(
+      'No se pudo guardar. Puede que el almacenamiento del navegador esté lleno.',
+    );
   }
 }
 
-/** Adapta estados guardados por versiones anteriores. */
+/**
+ * Adapta estados guardados por versiones anteriores.
+ *
+ * @spec RF-209 RNF-107
+ */
 function migrate(data) {
   const base = emptyState();
   const merged = {
@@ -76,7 +91,11 @@ function migrate(data) {
   return merged;
 }
 
-/** Reinicia los contadores diarios si ya estamos en otro día de estudio. */
+/**
+ * Reinicia los contadores diarios si ya estamos en otro día de estudio.
+ *
+ * @spec RF-405
+ */
 export function rollDay(now = nowMs()) {
   const s = state;
   const today = dayStart(now, s.settings.cutoffHour);
@@ -93,6 +112,7 @@ export function decks() {
   return load().decks;
 }
 
+/** @spec RF-106 */
 export function addDeck(name) {
   const s = load();
   const deck = { id: newId(), name: name.trim() || 'Sin nombre', createdAt: nowMs() };
@@ -108,7 +128,11 @@ export function renameDeck(id, name) {
   save();
 }
 
-/** Borra un mazo y todas sus tarjetas. Nunca deja la app sin ningún mazo. */
+/**
+ * Borra un mazo y todas sus tarjetas. Nunca deja la app sin ningún mazo.
+ *
+ * @spec RF-106 RF-107
+ */
 export function deleteDeck(id) {
   const s = load();
   if (s.decks.length <= 1) return false;
@@ -125,6 +149,7 @@ export function cards(deckId = null) {
   return deckId ? all.filter((c) => c.deckId === deckId) : all;
 }
 
+/** @spec RF-101 */
 export function addCard({ deckId, front, back, tags = [] }) {
   const s = load();
   const card = createCard({ id: newId(), deckId, front, back, tags });
@@ -133,6 +158,7 @@ export function addCard({ deckId, front, back, tags = [] }) {
   return card;
 }
 
+/** @spec RF-102 */
 export function updateCard(id, patch) {
   const card = load().cards.find((c) => c.id === id);
   if (!card) return null;
@@ -141,13 +167,18 @@ export function updateCard(id, patch) {
   return card;
 }
 
+/** @spec RF-103 */
 export function deleteCard(id) {
   const s = load();
   s.cards = s.cards.filter((c) => c.id !== id);
   save();
 }
 
-/** Devuelve la tarjeta al estado "nueva" conservando el texto. */
+/**
+ * Devuelve la tarjeta al estado "nueva" conservando el texto.
+ *
+ * @spec RF-109
+ */
 export function resetCard(id) {
   const card = load().cards.find((c) => c.id === id);
   if (!card) return null;
@@ -186,6 +217,7 @@ export function settings() {
   return load().settings;
 }
 
+/** @spec RF-501 */
 export function updateSettings(patch) {
   const s = load();
   Object.assign(s.settings, patch);
@@ -199,11 +231,61 @@ export function daily() {
 
 // --- Copia de seguridad --------------------------------------------------
 
+/**
+ * Añade al mazo que corresponda las tarjetas de una importación ya analizada.
+ *
+ * El mazo destino es, por este orden: el que esté seleccionado, el que nombre
+ * el fichero (creándolo si hace falta) o el primero. No se añaden preguntas que
+ * ya existan en ese mazo, comparando sin distinguir mayúsculas ni espacios.
+ *
+ * @spec RF-205 RF-206
+ */
+export function importCards(parsed, activeDeckId = null) {
+  const s = load();
+
+  let deckId = activeDeckId;
+  if (!deckId && parsed.deckName) {
+    const existing = s.decks.find((d) => d.name === parsed.deckName);
+    deckId = (existing || addDeck(parsed.deckName)).id;
+  }
+  if (!deckId) deckId = s.decks[0].id;
+
+  const key = (front) => front.trim().toLowerCase();
+  const seen = new Set(cards(deckId).map((c) => key(c.front)));
+
+  let added = 0;
+  let skipped = 0;
+  for (const card of parsed.cards) {
+    if (seen.has(key(card.front))) {
+      skipped += 1;
+      continue;
+    }
+    seen.add(key(card.front));
+    addCard({ deckId, front: card.front, back: card.back, tags: card.tags });
+    added += 1;
+  }
+
+  return { deckId, deckName: s.decks.find((d) => d.id === deckId)?.name ?? '', added, skipped };
+}
+
+/** @spec RF-208 */
 export function exportState() {
   return JSON.stringify(load(), null, 2);
 }
 
-/** Reemplaza todo el contenido por el de una copia de seguridad. */
+/** @spec RF-208 */
+export function backupFilename(now = nowMs()) {
+  const d = new Date(now);
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `tarjetas-${d.getFullYear()}-${mes}-${dia}.json`;
+}
+
+/**
+ * Reemplaza todo el contenido por el de una copia de seguridad.
+ *
+ * @spec RF-209
+ */
 export function importState(json) {
   const data = typeof json === 'string' ? JSON.parse(json) : json;
   if (!data || !Array.isArray(data.cards)) throw new Error('El fichero no tiene tarjetas.');
@@ -212,13 +294,18 @@ export function importState(json) {
   return state;
 }
 
+/** @spec RF-503 */
 export function reset() {
   state = emptyState();
   save();
   return state;
 }
 
-/** Estadísticas sencillas para la pantalla de ajustes. */
+/**
+ * Estadísticas sencillas para la pantalla de ajustes.
+ *
+ * @spec RF-502
+ */
 export function stats(now = nowMs()) {
   const s = load();
   const today = dayStart(now, s.settings.cutoffHour);

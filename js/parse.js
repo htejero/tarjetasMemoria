@@ -15,6 +15,7 @@ const TAG_KEYS = ['tags', 'etiquetas', 'tag', 'etiqueta'];
 
 const HEADER_WORDS = new Set([...FRONT_KEYS, ...BACK_KEYS, ...TAG_KEYS]);
 
+/** @spec RF-201 RF-202 RF-203 RF-207 RF-210 */
 export function parseInput(text) {
   const trimmed = String(text ?? '').trim();
   if (!trimmed) throw new Error('No hay nada que importar.');
