@@ -1,0 +1,520 @@
+/* Móvil primero: una columna, botones grandes y nada de scroll horizontal. */
+
+:root {
+  color-scheme: light dark;
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #eceef2;
+  --text: #14181d;
+  --muted: #5d6672;
+  --border: #d9dde3;
+  --accent: #2f6feb;
+  --danger: #c0392b;
+  --again: #d64545;
+  --hard: #d98324;
+  --good: #2f8f4e;
+  --easy: #2f6feb;
+  --radius: 14px;
+  --tabbar: 58px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111418;
+    --surface: #1a1f26;
+    --surface-2: #232a33;
+    --text: #e8ecf1;
+    --muted: #97a1ae;
+    --border: #2f3742;
+    --accent: #5b8cf7;
+    --danger: #e05a4c;
+    --again: #e05a4c;
+    --hard: #e0982f;
+    --good: #47b06a;
+    --easy: #5b8cf7;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h2 {
+  font-size: 1.15rem;
+  margin: 0 0 0.4rem;
+}
+
+h3 {
+  font-size: 1rem;
+  margin: 1.6rem 0 0.5rem;
+  color: var(--muted);
+}
+
+code {
+  background: var(--surface-2);
+  padding: 0.1em 0.35em;
+  border-radius: 5px;
+  font-size: 0.9em;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.hidden {
+  display: none !important;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+/* --- Cabecera ----------------------------------------------------------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: calc(env(safe-area-inset-top) + 0.5rem) 0.9rem 0.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.deck-picker select {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+  max-width: 55vw;
+  padding: 0.2rem 0;
+}
+
+.counters {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.counters span {
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.counters .c-new {
+  color: var(--easy);
+}
+.counters .c-learn {
+  color: var(--hard);
+}
+.counters .c-due {
+  color: var(--good);
+}
+
+/* --- Contenido ---------------------------------------------------------- */
+
+main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.9rem 0.9rem calc(var(--tabbar) + env(safe-area-inset-bottom) + 1rem);
+  -webkit-overflow-scrolling: touch;
+}
+
+.view {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--muted);
+}
+
+.empty h2 {
+  color: var(--text);
+}
+
+/* --- Tarjeta de estudio -------------------------------------------------- */
+
+.card-area {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.face {
+  width: 100%;
+  min-height: 45vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.4rem 1.1rem;
+  text-align: center;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.face-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.face-text {
+  font-size: 1.35rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.face-text.answer {
+  font-size: 1.2rem;
+  color: var(--good);
+}
+
+.face-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 auto;
+  width: 60%;
+}
+
+.face-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.grades {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.45rem;
+}
+
+.grade {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.8rem 0.2rem;
+  border: 0;
+  border-radius: 12px;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  min-height: 62px;
+}
+
+.grade:active {
+  filter: brightness(0.88);
+}
+
+.grade-name {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.grade-when {
+  font-size: 0.72rem;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.grade-0 {
+  background: var(--again);
+}
+.grade-1 {
+  background: var(--hard);
+}
+.grade-2 {
+  background: var(--good);
+}
+.grade-3 {
+  background: var(--easy);
+}
+
+.card-tools {
+  display: flex;
+  justify-content: center;
+  gap: 1.2rem;
+}
+
+/* --- Listado de tarjetas ------------------------------------------------- */
+
+.card-list,
+.deck-list,
+.stats {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.card-list li,
+.deck-list li,
+.stats li {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+}
+
+.card-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.card-item-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-item-front {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-item-back,
+.card-item-meta {
+  color: var(--muted);
+  font-size: 0.83rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deck-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.stats li {
+  display: flex;
+  justify-content: space-between;
+}
+
+/* --- Controles ----------------------------------------------------------- */
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.row.end {
+  justify-content: flex-end;
+}
+
+.row > input[type='search'],
+.row > input[type='text'] {
+  flex: 1;
+  min-width: 0;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem;
+  width: 100%;
+}
+
+textarea {
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.field {
+  display: block;
+  margin-top: 0.8rem;
+}
+
+.field > span {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  border-radius: 10px;
+  padding: 0.7rem 1.1rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+  width: auto;
+}
+
+.btn.ghost {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn.danger {
+  background: var(--danger);
+}
+
+.btn.file {
+  position: relative;
+}
+
+.link {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  font: inherit;
+  padding: 0.4rem;
+  cursor: pointer;
+}
+
+.link.danger {
+  color: var(--danger);
+}
+
+.icon-btn {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 1.1rem;
+  padding: 0.35rem 0.5rem;
+  cursor: pointer;
+}
+
+.feedback {
+  font-size: 0.88rem;
+  min-height: 1.2em;
+  margin: 0.6rem 0 0;
+}
+
+.feedback.error {
+  color: var(--danger);
+}
+
+.feedback.ok {
+  color: var(--good);
+}
+
+/* --- Barra de pestañas --------------------------------------------------- */
+
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 5;
+}
+
+.tab {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.85rem 0.2rem;
+  cursor: pointer;
+}
+
+.tab.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* --- Modal --------------------------------------------------------------- */
+
+dialog {
+  border: 0;
+  border-radius: var(--radius);
+  padding: 1.1rem;
+  width: min(560px, 92vw);
+  background: var(--surface);
+  color: var(--text);
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* --- Aviso flotante ------------------------------------------------------ */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 1rem);
+  background: var(--text);
+  color: var(--bg);
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  z-index: 20;
+  max-width: 90vw;
+  text-align: center;
+}
+
+@media (min-width: 720px) {
+  .face {
+    min-height: 38vh;
+  }
+}

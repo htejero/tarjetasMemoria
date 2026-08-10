@@ -1,0 +1,13 @@
+# Ejemplo de mazo: una línea por tarjeta, "pregunta | respuesta".
+# Las líneas que empiezan por # se ignoran.
+
+¿Capital de Francia? | París
+¿Capital de Italia? | Roma
+¿Capital de Portugal? | Lisboa
+¿Capital de Grecia? | Atenas
+¿Capital de Noruega? | Oslo
+¿Capital de Marruecos? | Rabat
+¿Capital de Canadá? | Ottawa
+¿Capital de Australia? | Canberra
+¿Capital de Brasil? | Brasilia
+¿Capital de Turquía? | Ankara

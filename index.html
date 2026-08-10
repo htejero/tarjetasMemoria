@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Tarjetas de memoria</title>
+    <meta name="description" content="Tarjetas de memoria con repetición espaciada." />
+    <meta name="theme-color" content="#111418" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Tarjetas" />
+    <link rel="stylesheet" href="css/app.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <label class="deck-picker">
+        <span class="sr-only">Mazo</span>
+        <select id="deck-select"></select>
+      </label>
+      <div class="counters" id="counters" aria-live="polite"></div>
+    </header>
+
+    <main>
+      <!-- ---------------------------------------------------------- Estudiar -->
+      <section id="view-study" class="view">
+        <div id="study-empty" class="empty hidden">
+          <h2>Nada que repasar</h2>
+          <p id="study-empty-detail"></p>
+          <button class="btn" data-goto="import">Añadir tarjetas</button>
+        </div>
+
+        <div id="study-card" class="card-area hidden">
+          <button type="button" id="card-face" class="face" aria-live="polite">
+            <div class="face-label">Pregunta</div>
+            <div class="face-text" id="face-front"></div>
+            <div class="face-divider hidden" id="face-divider"></div>
+            <div class="face-label hidden" id="face-back-label">Respuesta</div>
+            <div class="face-text answer hidden" id="face-back"></div>
+            <div class="face-hint" id="face-hint">Toca para ver la respuesta</div>
+          </button>
+
+          <div class="grades hidden" id="grades">
+            <button class="grade grade-0" data-grade="0">
+              <span class="grade-name">Fallo</span><span class="grade-when" data-when="0"></span>
+            </button>
+            <button class="grade grade-1" data-grade="1">
+              <span class="grade-name">Difícil</span><span class="grade-when" data-when="1"></span>
+            </button>
+            <button class="grade grade-2" data-grade="2">
+              <span class="grade-name">Bien</span><span class="grade-when" data-when="2"></span>
+            </button>
+            <button class="grade grade-3" data-grade="3">
+              <span class="grade-name">Fácil</span><span class="grade-when" data-when="3"></span>
+            </button>
+          </div>
+
+          <div class="card-tools">
+            <button class="link" id="btn-edit-current">Editar</button>
+            <button class="link danger" id="btn-delete-current">Borrar</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------------------------------------------------------- Tarjetas -->
+      <section id="view-cards" class="view hidden">
+        <div class="row">
+          <input type="search" id="card-search" placeholder="Buscar…" autocomplete="off" />
+          <button class="btn" id="btn-new-card">Nueva</button>
+        </div>
+        <p class="muted" id="cards-summary"></p>
+        <ul class="card-list" id="card-list"></ul>
+      </section>
+
+      <!-- --------------------------------------------------------- Importar -->
+      <section id="view-import" class="view hidden">
+        <h2>Añadir tarjetas</h2>
+        <p class="muted">
+          Una línea por tarjeta: <code>pregunta | respuesta</code>. También acepta CSV, TSV y JSON.
+        </p>
+        <textarea
+          id="import-text"
+          rows="10"
+          spellcheck="false"
+          placeholder="¿Capital de Francia? | París&#10;¿Capital de Italia? | Roma"
+        ></textarea>
+        <div class="row">
+          <label class="btn ghost file">
+            Desde fichero
+            <input type="file" id="import-file" accept=".txt,.csv,.tsv,.json,text/*" hidden />
+          </label>
+          <button class="btn" id="btn-import">Importar</button>
+        </div>
+        <p class="feedback" id="import-feedback" aria-live="polite"></p>
+
+        <h3>Copia de seguridad</h3>
+        <div class="row">
+          <button class="btn ghost" id="btn-export">Exportar todo</button>
+          <label class="btn ghost file">
+            Restaurar
+            <input type="file" id="restore-file" accept=".json,application/json" hidden />
+          </label>
+        </div>
+      </section>
+
+      <!-- ---------------------------------------------------------- Ajustes -->
+      <section id="view-settings" class="view hidden">
+        <h2>Ajustes</h2>
+        <label class="field">
+          <span>Tarjetas nuevas al día</span>
+          <input type="number" id="set-new" min="0" max="500" step="1" />
+        </label>
+        <label class="field">
+          <span>Máximo de repasos al día</span>
+          <input type="number" id="set-max" min="0" max="2000" step="1" />
+        </label>
+
+        <h3>Mazos</h3>
+        <ul class="deck-list" id="deck-list"></ul>
+        <div class="row">
+          <input type="text" id="new-deck-name" placeholder="Nombre del mazo" />
+          <button class="btn" id="btn-add-deck">Crear</button>
+        </div>
+
+        <h3>Progreso</h3>
+        <ul class="stats" id="stats"></ul>
+
+        <h3>Zona peligrosa</h3>
+        <button class="btn danger" id="btn-reset">Borrar todo</button>
+      </section>
+    </main>
+
+    <nav class="tabbar">
+      <button class="tab active" data-view="study">Estudiar</button>
+      <button class="tab" data-view="cards">Tarjetas</button>
+      <button class="tab" data-view="import">Añadir</button>
+      <button class="tab" data-view="settings">Ajustes</button>
+    </nav>
+
+    <!-- ------------------------------------------------------- Editor modal -->
+    <dialog id="editor">
+      <form method="dialog" id="editor-form">
+        <h2 id="editor-title">Nueva tarjeta</h2>
+        <label class="field">
+          <span>Pregunta</span>
+          <textarea id="editor-front" rows="3" required></textarea>
+        </label>
+        <label class="field">
+          <span>Respuesta</span>
+          <textarea id="editor-back" rows="3" required></textarea>
+        </label>
+        <label class="field">
+          <span>Etiquetas (separadas por comas)</span>
+          <input type="text" id="editor-tags" />
+        </label>
+        <label class="field">
+          <span>Mazo</span>
+          <select id="editor-deck"></select>
+        </label>
+        <p class="feedback" id="editor-feedback"></p>
+        <div class="row end">
+          <button class="btn ghost" value="cancel" formnovalidate>Cancelar</button>
+          <button class="btn" id="editor-save" value="save">Guardar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>

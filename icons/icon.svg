@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Tarjetas de memoria">
+  <rect width="512" height="512" rx="102" fill="#111418" />
+  <rect x="133" y="102" width="277" height="246" rx="36" fill="#5a687c" />
+  <rect x="102" y="164" width="277" height="246" rx="36" fill="#f0f3f7" />
+  <rect x="143" y="225" width="154" height="31" rx="15" fill="#5b8cf7" />
+  <rect x="143" y="297" width="195" height="26" rx="13" fill="#5a687c" />
+</svg>

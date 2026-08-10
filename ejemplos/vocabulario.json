@@ -1,0 +1,11 @@
+{
+  "mazo": "Inglés básico",
+  "tarjetas": [
+    { "pregunta": "perro", "respuesta": "dog", "etiquetas": ["animales"] },
+    { "pregunta": "gato", "respuesta": "cat", "etiquetas": ["animales"] },
+    { "pregunta": "caballo", "respuesta": "horse", "etiquetas": ["animales"] },
+    { "pregunta": "mesa", "respuesta": "table", "etiquetas": ["casa"] },
+    { "pregunta": "silla", "respuesta": "chair", "etiquetas": ["casa"] },
+    { "pregunta": "ventana", "respuesta": "window", "etiquetas": ["casa"] }
+  ]
+}
