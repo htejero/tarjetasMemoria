@@ -107,14 +107,25 @@ code {
   z-index: 5;
 }
 
-.deck-picker select {
-  background: transparent;
+.deck-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: none;
   border: 0;
   color: var(--text);
-  font-size: 1rem;
+  font: inherit;
   font-weight: 600;
-  max-width: 55vw;
+  max-width: 58vw;
   padding: 0.2rem 0;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.deck-picker #deck-label-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .counters {
@@ -459,7 +470,7 @@ textarea {
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   background: var(--surface);
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom);
@@ -471,9 +482,10 @@ textarea {
   border: 0;
   color: var(--muted);
   font: inherit;
-  font-size: 0.82rem;
-  padding: 0.85rem 0.2rem;
+  font-size: 0.78rem;
+  padding: 0.85rem 0.1rem;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .tab.active {
@@ -517,4 +529,142 @@ dialog::backdrop {
   .face {
     min-height: 38vh;
   }
+}
+
+/* --- Pantalla de mazos --------------------------------------------------- */
+
+.row.between {
+  justify-content: space-between;
+}
+
+.deck-cards {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.deck-cards li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.75rem 0.85rem;
+}
+
+.deck-cards li.al-dia {
+  opacity: 0.62;
+}
+
+.deck-check {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+}
+
+.deck-open {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+
+.deck-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deck-detail {
+  font-size: 0.83rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.deck-detail b {
+  font-weight: 600;
+}
+
+.deck-detail .n-new {
+  color: var(--easy);
+}
+.deck-detail .n-learn {
+  color: var(--hard);
+}
+.deck-detail .n-due {
+  color: var(--good);
+}
+
+.deck-pending {
+  flex: 0 0 auto;
+  min-width: 2.2rem;
+  text-align: right;
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.deck-pending.cero {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.btn.wide {
+  width: 100%;
+  margin-top: 0.9rem;
+}
+
+/* --- Aviso de copia de seguridad ----------------------------------------- */
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--hard);
+  border-radius: 12px;
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 0.9rem;
+}
+
+.banner p {
+  margin: 0.15rem 0 0;
+}
+
+.banner .btn {
+  flex: 0 0 auto;
+}
+
+/* --- Progreso por mazo --------------------------------------------------- */
+
+.deck-stats {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.deck-stats li {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+}
+
+.deck-stats .deck-name {
+  margin-bottom: 0.2rem;
 }

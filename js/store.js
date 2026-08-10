@@ -19,7 +19,9 @@ function emptyState() {
     decks: [{ id: deckId, name: 'General', createdAt: nowMs() }],
     cards: [],
     settings: { ...DEFAULT_SETTINGS },
-    daily: { day: dayStart(nowMs()), introduced: 0 },
+    selection: [],
+    lastBackupAt: null,
+    daily: { day: dayStart(nowMs()), introduced: {} },
     history: [],
   };
 }
@@ -84,8 +86,16 @@ function migrate(data) {
   // Restos de cuando existía el límite diario de repasos (RF-403, retirado).
   delete merged.settings.maxReviewsPerDay;
   delete merged.daily.reviewed;
+  // El cupo de nuevas pasó de ser global a ser por mazo (RF-402): un contador
+  // numérico de una copia antigua ya no significa nada.
+  if (typeof merged.daily.introduced !== 'object' || merged.daily.introduced === null) {
+    merged.daily.introduced = {};
+  }
+  merged.selection = Array.isArray(merged.selection) ? merged.selection : [];
+  if (typeof merged.lastBackupAt !== 'number') merged.lastBackupAt = null;
   // Las tarjetas huérfanas (mazo borrado o inexistente) van al primer mazo.
   const ids = new Set(merged.decks.map((d) => d.id));
+  merged.selection = merged.selection.filter((id) => ids.has(id));
   for (const card of merged.cards) {
     if (!ids.has(card.deckId)) card.deckId = merged.decks[0].id;
     if (!Array.isArray(card.tags)) card.tags = [];
@@ -102,7 +112,7 @@ export function rollDay(now = nowMs()) {
   const s = state;
   const today = dayStart(now, s.settings.cutoffHour);
   if (s.daily.day !== today) {
-    s.daily = { day: today, introduced: 0 };
+    s.daily = { day: today, introduced: {} };
     save();
   }
   return s.daily;
@@ -140,15 +150,55 @@ export function deleteDeck(id) {
   if (s.decks.length <= 1) return false;
   s.decks = s.decks.filter((d) => d.id !== id);
   s.cards = s.cards.filter((c) => c.deckId !== id);
+  s.selection = s.selection.filter((deckId) => deckId !== id);
   save();
   return true;
 }
 
+/**
+ * Mazos que se están estudiando. La lista vacía significa "todos".
+ *
+ * @spec RF-111
+ */
+export function selection() {
+  return load().selection;
+}
+
+/** @spec RF-111 */
+export function setSelection(deckIds) {
+  const s = load();
+  const validos = new Set(s.decks.map((d) => d.id));
+  const limpia = [...new Set(deckIds)].filter((id) => validos.has(id));
+  // Marcarlos todos es lo mismo que no marcar ninguno: se estudia todo.
+  s.selection = limpia.length === s.decks.length ? [] : limpia;
+  save();
+  return s.selection;
+}
+
+/** Nombre legible de la selección para la cabecera. @spec RF-108 */
+export function selectionLabel() {
+  const s = load();
+  if (!s.selection.length) return 'Todos los mazos';
+  if (s.selection.length === 1) {
+    return s.decks.find((d) => d.id === s.selection[0])?.name ?? 'Todos los mazos';
+  }
+  return `${s.selection.length} mazos`;
+}
+
 // --- Tarjetas ------------------------------------------------------------
 
+/** Tarjetas de un mazo, de una lista de mazos, o de todos si no se dice nada. */
 export function cards(deckId = null) {
   const all = load().cards;
-  return deckId ? all.filter((c) => c.deckId === deckId) : all;
+  if (!deckId) return all;
+  const ids = new Set(Array.isArray(deckId) ? deckId : [deckId]);
+  return ids.size ? all.filter((c) => ids.has(c.deckId)) : all;
+}
+
+/** Tarjetas de los mazos seleccionados. @spec RF-111 */
+export function selectedCards() {
+  const s = load();
+  return s.selection.length ? cards(s.selection) : s.cards;
 }
 
 /** @spec RF-101 */
@@ -205,7 +255,9 @@ export function recordReview(previous, updated, grade) {
   if (idx >= 0) s.cards[idx] = updated;
 
   rollDay();
-  if (previous.state === 'new') s.daily.introduced += 1;
+  if (previous.state === 'new') {
+    s.daily.introduced[updated.deckId] = (s.daily.introduced[updated.deckId] ?? 0) + 1;
+  }
 
   s.history.push({ ts: nowMs(), cardId: updated.id, grade, interval: updated.interval });
   if (s.history.length > HISTORY_LIMIT) s.history = s.history.slice(-HISTORY_LIMIT);
@@ -274,6 +326,33 @@ export function exportState() {
   return JSON.stringify(load(), null, 2);
 }
 
+const BACKUP_INTERVAL_MS = 7 * 24 * 3600 * 1000;
+
+/**
+ * Si toca recordar la copia de seguridad. Un navegador no puede escribirla solo,
+ * así que lo único honesto es avisar a tiempo.
+ *
+ * @spec RF-211
+ */
+export function backupStatus(now = nowMs()) {
+  const s = load();
+  const last = s.lastBackupAt;
+  const dias = last == null ? null : Math.floor((now - last) / (24 * 3600 * 1000));
+  return {
+    lastBackupAt: last,
+    dias,
+    pendiente: s.cards.length > 0 && (last == null || now - last >= BACKUP_INTERVAL_MS),
+  };
+}
+
+/** @spec RF-211 */
+export function markBackup(now = nowMs()) {
+  const s = load();
+  s.lastBackupAt = now;
+  save();
+  return s.lastBackupAt;
+}
+
 /** @spec RF-208 */
 export function backupFilename(now = nowMs()) {
   const d = new Date(now);
@@ -291,6 +370,8 @@ export function importState(json) {
   const data = typeof json === 'string' ? JSON.parse(json) : json;
   if (!data || !Array.isArray(data.cards)) throw new Error('El fichero no tiene tarjetas.');
   state = migrate(data);
+  // Restaurar una copia demuestra que existe: no hace falta avisar mañana.
+  state.lastBackupAt = nowMs();
   save();
   return state;
 }
@@ -300,6 +381,39 @@ export function reset() {
   state = emptyState();
   save();
   return state;
+}
+
+/**
+ * Progreso de cada mazo en los últimos 7 días.
+ *
+ * @spec RF-504
+ */
+export function deckStats(now = nowMs()) {
+  const s = load();
+  const desde = now - 7 * 24 * 3600 * 1000;
+  const mazoDe = new Map(s.cards.map((c) => [c.id, c.deckId]));
+
+  const porMazo = new Map(s.decks.map((d) => [d.id, { respuestas: 0, aciertos: 0 }]));
+  for (const h of s.history) {
+    if (h.ts < desde) continue;
+    // Las respuestas a tarjetas borradas ya no cuentan en ningún mazo.
+    const registro = porMazo.get(mazoDe.get(h.cardId));
+    if (!registro) continue;
+    registro.respuestas += 1;
+    if (h.grade > 0) registro.aciertos += 1;
+  }
+
+  return s.decks.map((deck) => {
+    const propias = s.cards.filter((c) => c.deckId === deck.id);
+    const { respuestas, aciertos } = porMazo.get(deck.id);
+    return {
+      deck,
+      total: propias.length,
+      dominadas: propias.filter((c) => c.state === 'review' && c.interval >= 21).length,
+      semana: respuestas,
+      retencion: respuestas ? Math.round((aciertos / respuestas) * 100) : null,
+    };
+  });
 }
 
 /**

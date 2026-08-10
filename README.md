@@ -10,14 +10,19 @@ hay cuentas ni internet de por medio.
 
 ## Cómo se usa
 
-Cuatro pestañas abajo:
+Cinco pestañas abajo:
 
 | Pestaña | Para qué |
 | --- | --- |
+| **Mazos** | La pantalla de inicio: cada mazo con lo que le toca hoy. Toca uno y empiezas |
 | **Estudiar** | Toca la tarjeta para ver la respuesta y valora cómo te ha ido |
 | **Tarjetas** | Ver, buscar, editar y borrar |
 | **Añadir** | Importar en bloque, y copias de seguridad |
-| **Ajustes** | Mazos, límites diarios y progreso |
+| **Ajustes** | Mazos, límite diario, progreso por mazo y tarjetas problemáticas |
+
+En **Mazos** ves de un vistazo *Francés 29 · Chino 32 · Historia ✓*. Tocas el
+nombre de uno y lo estudias; o marcas varios con las casillas y le das a
+*Estudiar* para mezclarlos. Sin ninguno marcado se estudian todos.
 
 Al responder eliges entre cuatro botones, y debajo de cada uno ves cuándo
 volvería a aparecer la tarjeta:
@@ -67,9 +72,15 @@ Detalles útiles:
 - Las tarjetas entran en el mazo seleccionado arriba; si tienes puesto
   "Todos los mazos" y el JSON trae nombre de mazo, se crea ese mazo.
 
-**Copia de seguridad**: *Exportar todo* descarga un JSON con las tarjetas y todo
-el progreso; *Restaurar* lo vuelve a cargar. Como los datos viven solo en el
-navegador, conviene exportar de vez en cuando.
+**Copia de seguridad**: *Exportar todo* guarda un JSON con las tarjetas y todo el
+progreso; *Restaurar* lo vuelve a cargar. En el móvil, el botón abre el menú de
+compartir, así que puedes mandarla a Archivos o iCloud de un toque.
+
+Los datos viven **solo en el navegador de este dispositivo**, no en un servidor.
+Por eso la pantalla de Mazos avisa cuando han pasado más de 7 días desde la
+última copia. Ningún navegador puede escribir el fichero por su cuenta —ni en
+iOS ni en ningún sitio—, así que el aviso es lo máximo que se puede automatizar:
+guardarla sigue siendo un gesto tuyo, pero solo uno.
 
 ## Ponerla en el móvil
 
@@ -122,8 +133,10 @@ Además:
 - El día de estudio empieza a las 4 de la mañana, no a medianoche.
 - Hay un límite diario de tarjetas **nuevas** (20 por defecto, se cambia en
   *Ajustes*) para que un mazo grande recién importado no se convierta en un
-  muro. Los repasos que toquen se muestran todos: no hay tope, porque aplazar
-  algo que estás a punto de olvidar es justo lo contrario de lo que se busca.
+  muro. El cupo es **de cada mazo**, y cuando estudias varios a la vez sus
+  tarjetas nuevas se alternan: así el francés no se come el cupo del chino.
+  Los repasos que toquen se muestran todos: no hay tope, porque aplazar algo
+  que estás a punto de olvidar es justo lo contrario de lo que se busca.
 - Lo que ya has empezado a aprender se termina aunque hayas llegado al límite.
 
 ## Cómo se desarrolla: la especificación manda
@@ -135,7 +148,7 @@ fuente de verdad, y el código existe para cumplirla.
 | Documento | Qué contiene |
 | --- | --- |
 | [`specs/01-alcance.md`](specs/01-alcance.md) | Para qué es esto, qué queda fuera y por qué |
-| [`specs/02-requisitos.md`](specs/02-requisitos.md) | 44 requisitos vigentes con criterios de aceptación |
+| [`specs/02-requisitos.md`](specs/02-requisitos.md) | 49 requisitos vigentes con criterios de aceptación |
 | [`specs/03-motor.md`](specs/03-motor.md) | El algoritmo: estados, transiciones y 10 invariantes |
 | [`specs/04-datos.md`](specs/04-datos.md) | Esquema guardado y gramática de los formatos |
 | [`specs/05-trazabilidad.md`](specs/05-trazabilidad.md) | Matriz generada: qué prueba cubre qué requisito |
@@ -179,9 +192,9 @@ puede probar con Node directamente y por eso sería reutilizable si algún día 
 app pasa a nativa.
 
 ```bash
-npm test        # 92 pruebas + comprobación de trazabilidad, sin dependencias
+npm test        # 117 pruebas + comprobación de trazabilidad, sin dependencias
 npm run spec    # regenera specs/05-trazabilidad.md
-npm run test:ui # 20 pruebas de interfaz (necesita Playwright)
+npm run test:ui # 28 pruebas de interfaz (necesita Playwright)
 ```
 
 Las pruebas de interfaz son lo único que necesita una dependencia, y solo de

@@ -16,16 +16,40 @@
   </head>
   <body>
     <header class="topbar">
-      <label class="deck-picker">
-        <span class="sr-only">Mazo</span>
-        <select id="deck-select"></select>
-      </label>
+      <button type="button" class="deck-picker" id="deck-label" data-goto="decks">
+        <span id="deck-label-text">Todos los mazos</span>
+        <span aria-hidden="true">›</span>
+      </button>
       <div class="counters" id="counters" aria-live="polite"></div>
     </header>
 
     <main>
+      <!-- ------------------------------------------------------------ Mazos -->
+      <section id="view-decks" class="view">
+        <div class="banner hidden" id="backup-banner">
+          <div>
+            <strong>Copia de seguridad</strong>
+            <p class="muted" id="backup-detail"></p>
+          </div>
+          <button class="btn" id="btn-backup">Guardar</button>
+        </div>
+
+        <div class="row between">
+          <h2>Mazos</h2>
+          <button class="link" id="btn-select-all">Todos</button>
+        </div>
+        <ul class="deck-cards" id="deck-cards"></ul>
+
+        <button class="btn wide" id="btn-study-selection">Estudiar</button>
+
+        <div class="row">
+          <input type="text" id="new-deck-name" placeholder="Nombre del mazo nuevo" />
+          <button class="btn ghost" id="btn-add-deck">Crear</button>
+        </div>
+      </section>
+
       <!-- ---------------------------------------------------------- Estudiar -->
-      <section id="view-study" class="view">
+      <section id="view-study" class="view hidden">
         <div id="study-empty" class="empty hidden">
           <h2>Nada que repasar</h2>
           <p id="study-empty-detail"></p>
@@ -116,13 +140,19 @@
 
         <h3>Mazos</h3>
         <ul class="deck-list" id="deck-list"></ul>
-        <div class="row">
-          <input type="text" id="new-deck-name" placeholder="Nombre del mazo" />
-          <button class="btn" id="btn-add-deck">Crear</button>
-        </div>
 
-        <h3>Progreso</h3>
+        <h3>Progreso por mazo</h3>
+        <ul class="deck-stats" id="deck-stats"></ul>
+
+        <h3>En total</h3>
         <ul class="stats" id="stats"></ul>
+
+        <h3>Tarjetas problemáticas</h3>
+        <p class="muted">
+          Las que más se te olvidan. Casi nunca es la memoria: suelen ser tarjetas
+          demasiado largas o ambiguas, y lo que toca es reescribirlas.
+        </p>
+        <ul class="card-list" id="leech-list"></ul>
 
         <h3>Zona peligrosa</h3>
         <button class="btn danger" id="btn-reset">Borrar todo</button>
@@ -130,7 +160,8 @@
     </main>
 
     <nav class="tabbar">
-      <button class="tab active" data-view="study">Estudiar</button>
+      <button class="tab active" data-view="decks">Mazos</button>
+      <button class="tab" data-view="study">Estudiar</button>
       <button class="tab" data-view="cards">Tarjetas</button>
       <button class="tab" data-view="import">Añadir</button>
       <button class="tab" data-view="settings">Ajustes</button>

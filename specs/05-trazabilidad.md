@@ -7,12 +7,12 @@ en cada `npm test`.
 
 | | |
 | --- | --- |
-| Requisitos especificados | 55 |
-| De verificación automática o de navegador | 54 |
-| Cubiertos por al menos una prueba | 54 |
+| Requisitos especificados | 60 |
+| De verificación automática o de navegador | 59 |
+| Cubiertos por al menos una prueba | 59 |
 | De verificación manual | 0 |
 | Retirados | 1 |
-| Pruebas distintas implicadas | 112 |
+| Pruebas distintas implicadas | 144 |
 
 ## Requisitos funcionales
 
@@ -25,8 +25,10 @@ en cada `npm test`.
 | [RF-105](02-requisitos.md#rf-105--ver-el-estado-de-cada-tarjeta-en-la-lista) | Ver el estado de cada tarjeta en la lista | navegador | `js/app.js` | la lista muestra el estado y las etiquetas |
 | [RF-106](02-requisitos.md#rf-106--gestionar-mazos) | Gestionar mazos | automática | `js/app.js`<br>`js/store.js` | se crean y se renombran mazos sin tocar sus tarjetas<br>nunca se puede quedar sin mazos |
 | [RF-107](02-requisitos.md#rf-107--borrar-un-mazo-borra-sus-tarjetas) | Borrar un mazo borra sus tarjetas | automática | `js/store.js` | borrar un mazo se lleva sus tarjetas y solo las suyas |
-| [RF-108](02-requisitos.md#rf-108--elegir-el-mazo-activo) | Elegir el mazo activo | navegador | `js/app.js` | el selector de mazo limita lo que se ve |
+| [RF-108](02-requisitos.md#rf-108--saber-siempre-qué-mazos-estoy-estudiando) | Saber siempre qué mazos estoy estudiando | navegador | `js/app.js`<br>`js/store.js` | la cabecera nombra la selección<br>tocar un mazo lo estudia y la cabecera lo dice |
 | [RF-109](02-requisitos.md#rf-109--reiniciar-el-progreso-de-una-tarjeta) | Reiniciar el progreso de una tarjeta | automática | `js/app.js`<br>`js/store.js` | reiniciar devuelve la tarjeta a nueva sin tocar el texto<br>se puede reiniciar el progreso desde el editor<br>una tarjeta sin estudiar no ofrece reiniciar |
+| [RF-110](02-requisitos.md#rf-110--pantalla-de-mazos) | Pantalla de mazos | navegador | `js/app.js`<br>`js/srs.js` | el resumen de un mazo desglosa lo que toca hoy<br>el resumen descuenta el cupo de nuevas ya consumido hoy<br>un mazo al día no tiene nada pendiente<br>hay un resumen por cada mazo, tenga tarjetas o no<br>la app arranca en la pantalla de mazos<br>cada mazo enseña lo que le toca hoy |
+| [RF-111](02-requisitos.md#rf-111--estudiar-varios-mazos-a-la-vez) | Estudiar varios mazos a la vez | navegador | `js/app.js`<br>`js/store.js` | sin selección se estudian todos los mazos<br>la selección limita las tarjetas y persiste<br>marcar todos los mazos equivale a no marcar ninguno<br>la selección se limpia de mazos borrados<br>marcar varios mazos los estudia juntos<br>el botón Todos limpia la selección |
 | [RF-201](02-requisitos.md#rf-201--importar-texto-con-separador) | Importar texto con separador | automática | `js/parse.js` | lee líneas separadas por barra vertical<br>elige el separador que parte de forma consistente<br>descarta los espacios de los extremos |
 | [RF-202](02-requisitos.md#rf-202--importar-csv-y-tsv) | Importar CSV y TSV | automática | `js/parse.js` | lee CSV con cabecera y etiquetas<br>acepta cabeceras en español<br>respeta el separador dentro de comillas<br>las comillas dobles escapadas se conservan<br>lee TSV<br>una cabecera sola no se convierte en tarjeta ni desaparece la única fila |
 | [RF-203](02-requisitos.md#rf-203--importar-json) | Importar JSON | automática | `js/parse.js` | lee JSON con claves en inglés o en español<br>lee JSON como lista de listas y con nombre de mazo<br>convierte \\n en saltos de línea reales |
@@ -34,9 +36,10 @@ en cada `npm test`.
 | [RF-205](02-requisitos.md#rf-205--no-duplicar-tarjetas) | No duplicar tarjetas | automática | `js/store.js` | no se importan preguntas que ya existen en el mazo<br>la misma pregunta puede existir en dos mazos distintos |
 | [RF-206](02-requisitos.md#rf-206--elegir-el-mazo-destino-al-importar) | Elegir el mazo destino al importar | automática | `js/app.js`<br>`js/store.js` | el mazo seleccionado manda sobre el nombre del fichero<br>sin mazo seleccionado se usa el que nombre el fichero, creándolo<br>sin mazo seleccionado ni nombre se usa el primero |
 | [RF-207](02-requisitos.md#rf-207--errores-de-importación-accionables) | Errores de importación accionables | automática | `js/parse.js` | avisa con el número de línea cuando falta la respuesta<br>avisa cuando no hay separador reconocible<br>avisa cuando el JSON está mal formado<br>avisa cuando el JSON no contiene tarjetas<br>avisa cuando no hay nada que importar<br>un error no devuelve tarjetas a medias |
-| [RF-208](02-requisitos.md#rf-208--exportar-copia-de-seguridad) | Exportar copia de seguridad | automática | `js/store.js` | la copia de seguridad reproduce el estado exacto<br>el fichero se llama con la fecha del día |
+| [RF-208](02-requisitos.md#rf-208--exportar-copia-de-seguridad) | Exportar copia de seguridad | automática | `js/app.js`<br>`js/store.js` | la copia de seguridad reproduce el estado exacto<br>el fichero se llama con la fecha del día |
 | [RF-209](02-requisitos.md#rf-209--restaurar-copia-de-seguridad) | Restaurar copia de seguridad | automática | `js/app.js`<br>`js/store.js` | reconoce una copia de seguridad completa<br>restaurar sustituye todo el contenido anterior<br>una copia incompleta se completa en lugar de rechazarse<br>un fichero sin tarjetas se rechaza con un error claro |
 | [RF-210](02-requisitos.md#rf-210--ignorar-líneas-vacías-y-comentarios) | Ignorar líneas vacías y comentarios | automática | `js/parse.js` | ignora líneas vacías y comentarios |
+| [RF-211](02-requisitos.md#rf-211--copia-de-seguridad-asistida) | Copia de seguridad asistida | automática | `js/app.js`<br>`js/store.js` | sin tarjetas no se molesta con la copia<br>con tarjetas y sin copia previa, avisa<br>tras guardarla, calla siete días y vuelve al octavo<br>restaurar una copia cuenta como copia reciente<br>el aviso de copia de seguridad aparece y se puede quitar |
 | [RF-301](02-requisitos.md#rf-301--la-respuesta-está-oculta-hasta-que-se-pide) | La respuesta está oculta hasta que se pide | navegador | `js/app.js` | la respuesta y los botones no se ven hasta voltear |
 | [RF-302](02-requisitos.md#rf-302--voltear-la-tarjeta) | Voltear la tarjeta | navegador | `js/app.js` | tocar la tarjeta muestra la respuesta |
 | [RF-303](02-requisitos.md#rf-303--cuatro-niveles-de-respuesta) | Cuatro niveles de respuesta | navegador | `js/app.js` | hay cuatro botones, en orden |
@@ -46,7 +49,7 @@ en cada `npm test`.
 | [RF-307](02-requisitos.md#rf-307--editar-o-borrar-la-tarjeta-que-estoy-viendo) | Editar o borrar la tarjeta que estoy viendo | navegador | — | se puede editar la tarjeta que se está viendo |
 | [RF-308](02-requisitos.md#rf-308--atajos-de-teclado) | Atajos de teclado | navegador | — | espacio voltea y las teclas 1-4 responden<br>los atajos no actúan mientras se escribe |
 | [RF-401](02-requisitos.md#rf-401--orden-de-la-cola) | Orden de la cola | automática | `js/srs.js` | la cola pone primero los repasos vencidos y deja las nuevas al final<br>dentro de cada grupo va antes lo más atrasado<br>los repasos vencidos se ofrecen todos, sin tope diario<br>los contadores separan nuevas, aprendiendo y repaso |
-| [RF-402](02-requisitos.md#rf-402--límite-diario-de-tarjetas-nuevas) | Límite diario de tarjetas nuevas | automática | `js/srs.js` | la cola respeta el límite diario de tarjetas nuevas |
+| [RF-402](02-requisitos.md#rf-402--límite-diario-de-tarjetas-nuevas-por-mazo) | Límite diario de tarjetas nuevas, por mazo | automática | `js/srs.js` | la cola respeta el límite diario de tarjetas nuevas<br>el cupo de nuevas es de cada mazo, no del conjunto<br>el cupo consumido se cuenta por separado en cada mazo<br>las nuevas de varios mazos se alternan<br>newAllowedToday descuenta lo ya introducido en ese mazo<br>un contador global antiguo de nuevas se descarta al cargar<br>el cupo consumido se apunta en el mazo de la tarjeta |
 | [RF-404](02-requisitos.md#rf-404--el-aprendizaje-empezado-no-se-corta) | El aprendizaje empezado no se corta | automática | `js/srs.js` | el aprendizaje ya empezado no se corta por los límites |
 | [RF-405](02-requisitos.md#rf-405--el-día-de-estudio-empieza-a-las-400) | El día de estudio empieza a las 4:00 | automática | `js/srs.js`<br>`js/store.js` | el día de estudio empieza a las 4 de la mañana<br>los contadores del día se reinician al pasar de las 4:00 |
 | [RF-406](02-requisitos.md#rf-406--no-cortar-la-sesión-por-unos-minutos) | No cortar la sesión por unos minutos | automática | `js/srs.js` | con nada vencido se adelanta el aprendizaje cercano<br>el adelanto no saca repasos antes de su día<br>sin ventana de adelanto la cola solo trae lo vencido |
@@ -54,6 +57,8 @@ en cada `npm test`.
 | [RF-501](02-requisitos.md#rf-501--cambiar-el-límite-diario-de-tarjetas-nuevas) | Cambiar el límite diario de tarjetas nuevas | automática | `js/app.js`<br>`js/store.js` | el límite por defecto es de 20 nuevas al día<br>el límite se cambia y persiste, y no hay tope de repasos<br>una copia antigua pierde el tope de repasos al cargarse |
 | [RF-502](02-requisitos.md#rf-502--ver-el-progreso) | Ver el progreso | automática | `js/app.js`<br>`js/store.js` | las estadísticas cuentan aciertos y respuestas<br>sin respuestas esta semana no se inventa un 0 % |
 | [RF-503](02-requisitos.md#rf-503--borrar-todo) | Borrar todo | automática | `js/app.js`<br>`js/store.js` | borrar todo deja un mazo vacío y los ajustes por defecto |
+| [RF-504](02-requisitos.md#rf-504--progreso-por-mazo) | Progreso por mazo | automática | `js/app.js`<br>`js/store.js` | cada mazo lleva su propio recuento de aciertos<br>un mazo sin respuestas muestra un guion, no un cero<br>cuenta como dominadas las tarjetas de 21 días o más<br>las respuestas a tarjetas borradas no cuentan en ningún mazo<br>el progreso se desglosa por mazo |
+| [RF-505](02-requisitos.md#rf-505--tarjetas-problemáticas) | Tarjetas problemáticas | automática | `js/app.js`<br>`js/srs.js` | se listan las tarjetas con 5 olvidos o más, de peor a mejor<br>el umbral se puede ajustar y sin problemáticas devuelve vacío<br>sin tarjetas problemáticas se dice explícitamente |
 
 ## Requisitos no funcionales
 

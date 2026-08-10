@@ -38,12 +38,14 @@ No hay servidor, ni cookies, ni identificadores ([RNF-104](02-requisitos.md)).
     }
   ],
   "settings": {
-    "newPerDay": 20,
+    "newPerDay": 20,              // por mazo y día
     "cutoffHour": 4
   },
+  "selection": ["uuid"],          // mazos marcados; vacío = todos
+  "lastBackupAt": 1767225600000,  // null si nunca se ha exportado
   "daily": {
     "day": 1767243600000,         // inicio del día de estudio en curso
-    "introduced": 3               // nuevas introducidas hoy
+    "introduced": { "uuid": 3 }   // nuevas introducidas hoy, por mazo
   },
   "history": [
     { "ts": 1767225600000, "cardId": "uuid", "grade": 2, "interval": 12 }
@@ -61,15 +63,22 @@ No hay servidor, ni cookies, ni identificadores ([RNF-104](02-requisitos.md)).
 3. **Siempre hay al menos un mazo** ([RF-106](02-requisitos.md)).
 4. **`daily`** se reinicia solo cuando cambia el día de estudio, que empieza a
    `cutoffHour` ([RF-405](02-requisitos.md)). Solo lleva la cuenta de las
-   tarjetas nuevas introducidas: los repasos no se limitan
-   ([RF-403](02-requisitos.md), retirado), así que no hay nada que contar.
-   Las copias de seguridad antiguas traen un `maxReviewsPerDay` y un `reviewed`
-   que se descartan al cargarlas.
-5. **`history`** se recorta a las 5000 respuestas más recientes. Sirve para las
+   tarjetas nuevas introducidas **por mazo** ([RF-402](02-requisitos.md)): los
+   repasos no se limitan ([RF-403](02-requisitos.md), retirado), así que no hay
+   nada más que contar. Las copias de seguridad antiguas traen un
+   `maxReviewsPerDay`, un `reviewed` y un `introduced` numérico; los tres se
+   descartan al cargarlas.
+5. **`selection`** guarda qué mazos estás estudiando
+   ([RF-111](02-requisitos.md)). La lista vacía significa *todos*, que es
+   distinto de *ninguno*: no existe el caso "ninguno". Al cargar se descartan
+   los identificadores de mazos que ya no existen.
+6. **`lastBackupAt`** sostiene el aviso de copia de seguridad
+   ([RF-211](02-requisitos.md)). Restaurar una copia lo pone al día.
+7. **`history`** se recorta a las 5000 respuestas más recientes. Sirve para las
    estadísticas ([RF-502](02-requisitos.md)), no para reconstruir el estado, así
    que perder la cola vieja no rompe nada. El tope evita que el almacenamiento
    del navegador se llene con los años.
-6. **`version`** identifica el formato. Al cargar un estado más antiguo o
+8. **`version`** identifica el formato. Al cargar un estado más antiguo o
    incompleto se rellenan los huecos con los valores por defecto en lugar de
    rechazarlo ([RF-209](02-requisitos.md)).
 

@@ -86,15 +86,19 @@ cómo se verifica:
 
 **Verificación:** automática
 
-### RF-108 — Elegir el mazo activo
+### RF-108 — Saber siempre qué mazos estoy estudiando
+
+**Necesidad.** Con seis temas abiertos, lo único peor que no poder elegir es no
+saber qué has elegido.
 
 **Criterios de aceptación.**
-1. El selector de la cabecera ofrece *Todos los mazos* y cada mazo por su
-   nombre.
-2. **Cuando** elijo un mazo, **entonces** la sesión de estudio, la lista y los
-   contadores se limitan a ese mazo.
-3. **Dado** que el mazo activo se borra, **entonces** la selección vuelve a
-   *Todos los mazos* sin dejar la app en un estado roto.
+1. La cabecera muestra en todo momento la selección activa: el nombre del mazo,
+   *N mazos* si hay varios, o *Todos los mazos*.
+2. **Cuando** toco esa etiqueta, **entonces** voy a la pantalla de mazos.
+3. La sesión de estudio, la lista de tarjetas y los contadores se limitan a la
+   selección.
+4. **Dado** que un mazo de la selección se borra, **entonces** desaparece de la
+   selección sin dejar la app en un estado roto.
 
 **Verificación:** navegador
 
@@ -111,6 +115,38 @@ borrarla y volver a escribirla.
 2. El texto, las etiquetas y el mazo no cambian.
 
 **Verificación:** automática
+
+### RF-110 — Pantalla de mazos
+
+**Necesidad.** El caso de uso real es abrir la app por la mañana y decidir qué
+toca hoy: francés, chino, historia. Para decidir hace falta ver de un vistazo
+cuánto tiene pendiente cada uno.
+
+**Criterios de aceptación.**
+1. Hay una pantalla, la primera de la aplicación, que lista todos los mazos.
+2. Cada mazo muestra cuántas tarjetas le tocan hoy, desglosadas en nuevas,
+   aprendiendo y repaso, y su total.
+3. Las nuevas que muestra son las que de verdad se pueden estudiar hoy, ya
+   descontado el cupo diario ya consumido en ese mazo.
+4. Un mazo sin nada pendiente se distingue a simple vista de uno con trabajo.
+5. **Cuando** toco el nombre de un mazo, **entonces** empiezo a estudiarlo.
+6. Desde ahí se crean mazos y se accede a renombrarlos y borrarlos.
+
+**Verificación:** navegador
+
+### RF-111 — Estudiar varios mazos a la vez
+
+**Necesidad.** Unos días toca solo chino; otros, chino e historia pero no
+francés.
+
+**Criterios de aceptación.**
+1. En la pantalla de mazos puedo marcar varios y estudiarlos juntos.
+2. Sin ninguno marcado se estudian todos.
+3. La selección se conserva entre sesiones, y se limpia sola de mazos borrados.
+4. Al estudiar varios mazos, las tarjetas se entremezclan en lugar de agotar un
+   mazo antes de empezar el siguiente.
+
+**Verificación:** navegador
 
 ---
 
@@ -232,6 +268,27 @@ datos de Safari se lleva meses de trabajo.
 
 **Verificación:** automática
 
+### RF-211 — Copia de seguridad asistida
+
+**Necesidad.** Los datos viven en el navegador de un solo dispositivo. Una copia
+que depende de que te acuerdes de hacerla no es una copia. Un navegador **no
+puede** escribir un fichero por su cuenta y sin permiso —ni en iOS ni en ningún
+sitio—, así que lo máximo honesto es: avisar cuando toca y que guardarla cueste
+un solo gesto.
+
+**Criterios de aceptación.**
+1. Se recuerda cuándo se hizo la última copia.
+2. **Dado** que hay tarjetas y han pasado 7 días o más desde la última copia (o
+   no se ha hecho ninguna), **entonces** aparece un aviso visible con un botón
+   para guardarla.
+3. **Cuando** guardo la copia, **entonces** el aviso desaparece y no vuelve
+   hasta dentro de otros 7 días.
+4. En un móvil que lo permita, el botón ofrece compartir el fichero (Archivos,
+   iCloud, correo); si no, lo descarga.
+5. Restaurar una copia también cuenta como copia reciente.
+
+**Verificación:** automática
+
 ---
 
 ## RF-3xx · Sesión de estudio
@@ -342,13 +399,23 @@ porque introducir material cuando ya hay atraso es lo que hunde a la gente.
 
 **Verificación:** automática
 
-### RF-402 — Límite diario de tarjetas nuevas
+### RF-402 — Límite diario de tarjetas nuevas, por mazo
+
+**Necesidad.** El cupo tiene que ser **de cada mazo**, no del conjunto. Con un
+cupo global y varios temas abiertos, el mazo que importaste primero se lo come
+entero durante días y los demás no llegan a arrancar nunca: con dos mazos de 100
+tarjetas, las 20 nuevas de hoy salían las 20 del primero. Con un cupo por mazo,
+cada tema avanza a su ritmo y la pantalla de mazos dice la verdad.
 
 **Criterios de aceptación.**
 1. **Dado** un límite de N nuevas al día, **entonces** no se introducen más de N
-   tarjetas nuevas en un mismo día de estudio.
-2. El límite no afecta a las tarjetas ya empezadas.
-3. Con el límite a 0 no se introduce ninguna nueva.
+   tarjetas nuevas **de cada mazo** en un mismo día de estudio.
+2. El cupo consumido se cuenta por separado en cada mazo.
+3. **Dado** que estudio varios mazos a la vez, **entonces** sus tarjetas nuevas
+   se alternan en lugar de servirse todas las de un mazo antes que las del
+   siguiente.
+4. El límite no afecta a las tarjetas ya empezadas.
+5. Con el límite a 0 no se introduce ninguna nueva.
 
 **Verificación:** automática
 
@@ -428,8 +495,8 @@ lo que toca ahora, no lo que tocaba al abrirla.
 ### RF-501 — Cambiar el límite diario de tarjetas nuevas
 
 **Criterios de aceptación.**
-1. Puedo cambiar cuántas tarjetas nuevas se introducen al día.
-2. El valor por defecto es 20.
+1. Puedo cambiar cuántas tarjetas nuevas se introducen al día en cada mazo.
+2. El valor por defecto es 20, y se aplica a todos los mazos por igual.
 3. Un valor negativo o no numérico se corrige a 0.
 4. El cambio tiene efecto inmediato, sin recargar.
 5. No hay ningún ajuste equivalente para los repasos
@@ -452,6 +519,36 @@ lo que toca ahora, no lo que tocaba al abrirla.
 **Criterios de aceptación.**
 1. Borrar todos los datos exige dos confirmaciones seguidas.
 2. Después queda un único mazo vacío y los ajustes por defecto.
+
+**Verificación:** automática
+
+### RF-504 — Progreso por mazo
+
+**Necesidad.** "Aciertos: 82 %" sobre todo junto no dice nada cuando estudias
+francés, chino e historia a la vez. Lo que quieres saber es en cuál vas bien.
+
+**Criterios de aceptación.**
+1. Cada mazo muestra: tarjetas en total, cuántas están dominadas (intervalo de
+   21 días o más), respuestas de los últimos 7 días y porcentaje de aciertos de
+   ese periodo.
+2. Cuenta como acierto cualquier respuesta distinta de *Fallo*.
+3. Un mazo sin respuestas en el periodo muestra `—`, no 0 %.
+4. Las respuestas a tarjetas ya borradas no se cuentan en ningún mazo.
+
+**Verificación:** automática
+
+### RF-505 — Tarjetas problemáticas
+
+**Necesidad.** Una tarjeta que has fallado seis veces casi nunca es un problema
+de memoria: es una tarjeta mal escrita, demasiado larga o ambigua. Verlas juntas
+es lo que permite arreglarlas, y arreglarlas rinde más que cualquier ajuste del
+algoritmo.
+
+**Criterios de aceptación.**
+1. Hay una lista de las tarjetas con 5 fallos o más, de más a menos fallos.
+2. Cada una muestra su mazo y cuántas veces se ha olvidado.
+3. Desde la lista se puede editar o reiniciar la tarjeta directamente.
+4. Sin tarjetas problemáticas, se dice explícitamente que no hay ninguna.
 
 **Verificación:** automática
 

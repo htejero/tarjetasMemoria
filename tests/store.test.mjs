@@ -288,6 +288,17 @@ test('[RF-501] una copia antigua pierde el tope de repasos al cargarse', () => {
   assert.equal(store.daily().reviewed, undefined);
 });
 
+test('[RF-402] un contador global antiguo de nuevas se descarta al cargar', () => {
+  limpiar();
+  store.importState({
+    version: 1,
+    decks: [{ id: 'd1', name: 'Viejo' }],
+    cards: [],
+    daily: { day: 0, introduced: 17 },
+  });
+  assert.deepEqual(store.daily().introduced, {});
+});
+
 test('[RF-502] las estadísticas cuentan aciertos y respuestas', () => {
   limpiar();
   const card = store.addCard({ deckId: mazoPorDefecto(), front: 'a', back: 'b' });
@@ -324,12 +335,180 @@ test('[RF-503] borrar todo deja un mazo vacío y los ajustes por defecto', () =>
 
 test('[RF-405] los contadores del día se reinician al pasar de las 4:00', () => {
   limpiar();
-  const card = store.addCard({ deckId: mazoPorDefecto(), front: 'a', back: 'b' });
+  const deckId = mazoPorDefecto();
+  const card = store.addCard({ deckId, front: 'a', back: 'b' });
   store.recordReview(card, review(card, GRADE.GOOD), GRADE.GOOD);
-  assert.equal(store.daily().introduced, 1);
+  assert.equal(store.daily().introduced[deckId], 1);
 
   const manana = Date.now() + 24 * 3600 * 1000;
-  assert.equal(store.rollDay(manana).introduced, 0);
+  assert.deepEqual(store.rollDay(manana).introduced, {});
+});
+
+test('[RF-402] el cupo consumido se apunta en el mazo de la tarjeta', () => {
+  limpiar();
+  const frances = mazoPorDefecto();
+  const chino = store.addDeck('Chino').id;
+  const a = store.addCard({ deckId: frances, front: 'a', back: 'b' });
+  const b = store.addCard({ deckId: chino, front: 'c', back: 'd' });
+
+  const aEstudiada = review(a, GRADE.GOOD);
+  store.recordReview(a, aEstudiada, GRADE.GOOD);
+  store.recordReview(b, review(b, GRADE.GOOD), GRADE.GOOD);
+  // La segunda respuesta a la misma tarjeta ya no consume cupo: no es nueva.
+  store.recordReview(aEstudiada, review(aEstudiada, GRADE.GOOD), GRADE.GOOD);
+
+  assert.deepEqual(store.daily().introduced, { [frances]: 1, [chino]: 1 });
+});
+
+// --- Selección de mazos ---------------------------------------------------
+
+test('[RF-111] sin selección se estudian todos los mazos', () => {
+  limpiar();
+  const otro = store.addDeck('Otro');
+  store.addCard({ deckId: mazoPorDefecto(), front: 'a', back: 'b' });
+  store.addCard({ deckId: otro.id, front: 'c', back: 'd' });
+
+  assert.deepEqual(store.selection(), []);
+  assert.equal(store.selectedCards().length, 2);
+});
+
+test('[RF-111] la selección limita las tarjetas y persiste', () => {
+  limpiar();
+  const otro = store.addDeck('Otro');
+  store.addCard({ deckId: mazoPorDefecto(), front: 'a', back: 'b' });
+  store.addCard({ deckId: otro.id, front: 'c', back: 'd' });
+
+  store.setSelection([otro.id]);
+  store.reload();
+  assert.deepEqual(store.selection(), [otro.id]);
+  assert.deepEqual(
+    store.selectedCards().map((c) => c.front),
+    ['c'],
+  );
+});
+
+test('[RF-111] marcar todos los mazos equivale a no marcar ninguno', () => {
+  limpiar();
+  const otro = store.addDeck('Otro');
+  assert.deepEqual(store.setSelection([mazoPorDefecto(), otro.id]), []);
+});
+
+test('[RF-111] la selección se limpia de mazos borrados', () => {
+  limpiar();
+  const a = store.addDeck('A');
+  store.addDeck('B');
+  store.setSelection([a.id]);
+  store.deleteDeck(a.id);
+  assert.deepEqual(store.selection(), []);
+
+  // Y también al cargar una copia que mencione mazos inexistentes.
+  store.importState({
+    version: 1,
+    decks: [
+      { id: 'd1', name: 'Uno' },
+      { id: 'd2', name: 'Dos' },
+    ],
+    cards: [],
+    selection: ['d1', 'fantasma'],
+  });
+  assert.deepEqual(store.selection(), ['d1']);
+});
+
+test('[RF-108] la cabecera nombra la selección', () => {
+  limpiar();
+  const frances = store.addDeck('Francés');
+  const chino = store.addDeck('Chino');
+  assert.equal(store.selectionLabel(), 'Todos los mazos');
+  store.setSelection([frances.id]);
+  assert.equal(store.selectionLabel(), 'Francés');
+  store.setSelection([frances.id, chino.id]);
+  assert.equal(store.selectionLabel(), '2 mazos');
+});
+
+// --- Copia de seguridad asistida ------------------------------------------
+
+test('[RF-211] sin tarjetas no se molesta con la copia', () => {
+  limpiar();
+  assert.equal(store.backupStatus().pendiente, false);
+});
+
+test('[RF-211] con tarjetas y sin copia previa, avisa', () => {
+  limpiar();
+  store.addCard({ deckId: mazoPorDefecto(), front: 'a', back: 'b' });
+  const estado = store.backupStatus();
+  assert.equal(estado.pendiente, true);
+  assert.equal(estado.dias, null);
+});
+
+test('[RF-211] tras guardarla, calla siete días y vuelve al octavo', () => {
+  limpiar();
+  store.addCard({ deckId: mazoPorDefecto(), front: 'a', back: 'b' });
+  const ahora = Date.now();
+  store.markBackup(ahora);
+
+  assert.equal(store.backupStatus(ahora).pendiente, false);
+  assert.equal(store.backupStatus(ahora + 6 * 24 * 3600 * 1000).pendiente, false);
+
+  const octavo = ahora + 8 * 24 * 3600 * 1000;
+  assert.equal(store.backupStatus(octavo).pendiente, true);
+  assert.equal(store.backupStatus(octavo).dias, 8);
+});
+
+test('[RF-211] restaurar una copia cuenta como copia reciente', () => {
+  limpiar();
+  store.addCard({ deckId: mazoPorDefecto(), front: 'a', back: 'b' });
+  const copia = store.exportState();
+  store.reset();
+  store.importState(copia);
+  assert.equal(store.backupStatus().pendiente, false);
+});
+
+// --- Progreso por mazo ----------------------------------------------------
+
+test('[RF-504] cada mazo lleva su propio recuento de aciertos', () => {
+  limpiar();
+  const frances = mazoPorDefecto();
+  const chino = store.addDeck('Chino').id;
+  const a = store.addCard({ deckId: frances, front: 'a', back: 'b' });
+  const b = store.addCard({ deckId: chino, front: 'c', back: 'd' });
+
+  for (const grade of [GRADE.GOOD, GRADE.AGAIN]) {
+    store.recordReview(a, review(a, grade), grade);
+  }
+  store.recordReview(b, review(b, GRADE.GOOD), GRADE.GOOD);
+
+  const [statsFrances, statsChino] = store.deckStats();
+  assert.equal(statsFrances.semana, 2);
+  assert.equal(statsFrances.retencion, 50);
+  assert.equal(statsChino.semana, 1);
+  assert.equal(statsChino.retencion, 100);
+});
+
+test('[RF-504] un mazo sin respuestas muestra un guion, no un cero', () => {
+  limpiar();
+  store.addCard({ deckId: mazoPorDefecto(), front: 'a', back: 'b' });
+  assert.equal(store.deckStats()[0].retencion, null);
+});
+
+test('[RF-504] cuenta como dominadas las tarjetas de 21 días o más', () => {
+  limpiar();
+  const deckId = mazoPorDefecto();
+  const a = store.addCard({ deckId, front: 'a', back: 'b' });
+  const b = store.addCard({ deckId, front: 'c', back: 'd' });
+  store.updateCard(a.id, { state: 'review', interval: 30 });
+  store.updateCard(b.id, { state: 'review', interval: 10 });
+  assert.equal(store.deckStats()[0].dominadas, 1);
+});
+
+test('[RF-504] las respuestas a tarjetas borradas no cuentan en ningún mazo', () => {
+  limpiar();
+  const deckId = mazoPorDefecto();
+  const card = store.addCard({ deckId, front: 'a', back: 'b' });
+  store.recordReview(card, review(card, GRADE.GOOD), GRADE.GOOD);
+  assert.equal(store.deckStats()[0].semana, 1);
+
+  store.deleteCard(card.id);
+  assert.equal(store.deckStats()[0].semana, 0);
 });
 
 // --- Robustez -------------------------------------------------------------

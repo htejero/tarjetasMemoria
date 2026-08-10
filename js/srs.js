@@ -268,8 +268,6 @@ function isLearning(card) {
  */
 export function buildQueue(cards, opts = {}) {
   const now = opts.now ?? nowMs();
-  const newPerDay = opts.newPerDay ?? 20;
-  const introducedToday = opts.introducedToday ?? 0;
   const lookaheadMs = opts.lookaheadMs ?? 0;
 
   const due = [];
@@ -287,13 +285,10 @@ export function buildQueue(cards, opts = {}) {
 
   due.sort((a, b) => a.due - b.due);
   learning.sort((a, b) => a.due - b.due);
-  fresh.sort((a, b) => a.createdAt - b.createdAt || String(a.id).localeCompare(String(b.id)));
 
   // Los repasos vencidos no se recortan: el freno está en la entrada de
   // material nuevo, no en la salida (RF-403, retirado).
-  const newSlots = Math.max(0, newPerDay - introducedToday);
-
-  const queue = [...due, ...learning, ...fresh.slice(0, newSlots)];
+  const queue = [...due, ...learning, ...selectNew(fresh, opts)];
   if (queue.length || !lookaheadMs) return queue;
 
   // Nada vencido: antes de dar la sesión por terminada, adelanta el
@@ -301,6 +296,46 @@ export function buildQueue(cards, opts = {}) {
   return cards
     .filter((card) => isLearning(card) && card.due > now && card.due <= now + lookaheadMs)
     .sort((a, b) => a.due - b.due);
+}
+
+/**
+ * Elige las tarjetas nuevas del día: hasta `newPerDay` por mazo, descontando lo
+ * que ya se haya introducido hoy en cada uno, y alternando entre mazos para que
+ * uno grande no monopolice la sesión (RF-402).
+ */
+function selectNew(fresh, opts) {
+  const newPerDay = opts.newPerDay ?? 20;
+  const introduced = opts.introducedByDeck ?? {};
+
+  const porMazo = new Map();
+  const orden = [...fresh].sort(
+    (a, b) => a.createdAt - b.createdAt || String(a.id).localeCompare(String(b.id)),
+  );
+  for (const card of orden) {
+    if (!porMazo.has(card.deckId)) porMazo.set(card.deckId, []);
+    const cupo = Math.max(0, newPerDay - (introduced[card.deckId] ?? 0));
+    const lista = porMazo.get(card.deckId);
+    if (lista.length < cupo) lista.push(card);
+  }
+
+  // Reparto por turnos: una de cada mazo, y vuelta a empezar.
+  const salida = [];
+  const listas = [...porMazo.values()];
+  for (let i = 0; salida.length < listas.reduce((n, l) => n + l.length, 0); i += 1) {
+    for (const lista of listas) if (i < lista.length) salida.push(lista[i]);
+  }
+  return salida;
+}
+
+/**
+ * Cuántas tarjetas nuevas de un mazo se pueden estudiar todavía hoy.
+ *
+ * @spec RF-402
+ */
+export function newAllowedToday(deckId, opts = {}) {
+  const newPerDay = opts.newPerDay ?? 20;
+  const introduced = opts.introducedByDeck ?? {};
+  return Math.max(0, newPerDay - (introduced[deckId] ?? 0));
 }
 
 /**
@@ -331,18 +366,26 @@ export function nextAvailableAt(cards, opts = {}) {
 export function emptyQueueReason(cards, opts = {}) {
   const now = opts.now ?? nowMs();
   const newPerDay = opts.newPerDay ?? 20;
-  const introducedToday = opts.introducedToday ?? 0;
 
   if (!cards.length) {
-    return { code: 'sin-tarjetas', message: 'Este mazo aún no tiene tarjetas.' };
+    return { code: 'sin-tarjetas', message: 'Aquí todavía no hay tarjetas.' };
   }
 
   const c = counts(cards, { now });
 
-  if (c.nuevas > 0 && introducedToday >= newPerDay) {
+  // El cupo es por mazo, así que solo se ha agotado si ningún mazo con nuevas
+  // pendientes tiene hueco libre.
+  const conHueco = new Set(
+    cards
+      .filter((card) => card.state === 'new')
+      .map((card) => card.deckId)
+      .filter((deckId) => newAllowedToday(deckId, opts) > 0),
+  );
+
+  if (c.nuevas > 0 && conHueco.size === 0) {
     return {
       code: 'limite-nuevas',
-      message: `Has alcanzado el límite de ${newPerDay} tarjetas nuevas de hoy. Quedan ${c.nuevas} sin empezar.`,
+      message: `Has alcanzado el límite de ${newPerDay} tarjetas nuevas por mazo de hoy. Quedan ${c.nuevas} sin empezar.`,
     };
   }
 
@@ -354,6 +397,46 @@ export function emptyQueueReason(cards, opts = {}) {
     };
   }
   return { code: 'al-dia', message: 'Todo repasado por hoy.' };
+}
+
+/**
+ * Resumen de un mazo para la pantalla de mazos: lo que toca hoy, ya descontado
+ * el cupo de nuevas consumido.
+ *
+ * @spec RF-110
+ */
+export function deckSummary(deck, cards, opts = {}) {
+  const now = opts.now ?? nowMs();
+  const propias = cards.filter((c) => c.deckId === deck.id);
+  const c = counts(propias, { now });
+  const nuevasHoy = Math.min(c.nuevas, newAllowedToday(deck.id, opts));
+  return {
+    deck,
+    total: c.total,
+    nuevas: c.nuevas,
+    nuevasHoy,
+    aprendiendo: c.aprendiendo,
+    repaso: c.repaso,
+    pendientes: nuevasHoy + c.aprendiendo + c.repaso,
+  };
+}
+
+/** @spec RF-110 */
+export function deckSummaries(decks, cards, opts = {}) {
+  return decks.map((deck) => deckSummary(deck, cards, opts));
+}
+
+/**
+ * Tarjetas que se olvidan una y otra vez. Casi siempre están mal escritas, no
+ * mal memorizadas.
+ *
+ * @spec RF-505
+ */
+export function leeches(cards, opts = {}) {
+  const minLapses = opts.minLapses ?? 5;
+  return cards
+    .filter((c) => c.lapses >= minLapses)
+    .sort((a, b) => b.lapses - a.lapses || String(a.id).localeCompare(String(b.id)));
 }
 
 /** Contadores para la cabecera de la sesión. */

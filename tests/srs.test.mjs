@@ -13,9 +13,13 @@ import {
   counts,
   createCard,
   dayStart,
+  deckSummaries,
+  deckSummary,
   emptyQueueReason,
   formatDelay,
+  leeches,
   nextAvailableAt,
+  newAllowedToday,
   previewIntervals,
   review,
 } from '../js/srs.js';
@@ -235,8 +239,59 @@ test('[RF-401] dentro de cada grupo va antes lo más atrasado', () => {
 test('[RF-402] la cola respeta el límite diario de tarjetas nuevas', () => {
   const cards = [fresh({ id: 'a' }), fresh({ id: 'b' }), fresh({ id: 'c' })];
   assert.equal(buildQueue(cards, { now: NOW, newPerDay: 2 }).length, 2);
-  assert.equal(buildQueue(cards, { now: NOW, newPerDay: 2, introducedToday: 2 }).length, 0);
+  assert.equal(
+    buildQueue(cards, { now: NOW, newPerDay: 2, introducedByDeck: { d1: 2 } }).length,
+    0,
+  );
   assert.equal(buildQueue(cards, { now: NOW, newPerDay: 0 }).length, 0);
+});
+
+test('[RF-402] el cupo de nuevas es de cada mazo, no del conjunto', () => {
+  // Francés importado antes que chino: con un cupo global se lo comía entero.
+  const cards = [];
+  for (let i = 0; i < 50; i += 1) {
+    cards.push(fresh({ id: `fr${i}`, deckId: 'frances', createdAt: NOW - 2000 + i }));
+    cards.push(fresh({ id: `zh${i}`, deckId: 'chino', createdAt: NOW - 1000 + i }));
+  }
+  const queue = buildQueue(cards, { now: NOW, newPerDay: 20 });
+  const porMazo = {};
+  for (const c of queue) porMazo[c.deckId] = (porMazo[c.deckId] ?? 0) + 1;
+  assert.deepEqual(porMazo, { frances: 20, chino: 20 });
+});
+
+test('[RF-402] el cupo consumido se cuenta por separado en cada mazo', () => {
+  const cards = [
+    fresh({ id: 'fr1', deckId: 'frances' }),
+    fresh({ id: 'zh1', deckId: 'chino' }),
+  ];
+  const queue = buildQueue(cards, {
+    now: NOW,
+    newPerDay: 1,
+    introducedByDeck: { frances: 1 },
+  });
+  assert.deepEqual(
+    queue.map((c) => c.id),
+    ['zh1'],
+  );
+});
+
+test('[RF-402] las nuevas de varios mazos se alternan', () => {
+  const cards = [];
+  for (let i = 0; i < 3; i += 1) {
+    cards.push(fresh({ id: `fr${i}`, deckId: 'frances', createdAt: NOW - 2000 + i }));
+    cards.push(fresh({ id: `zh${i}`, deckId: 'chino', createdAt: NOW - 1000 + i }));
+  }
+  assert.deepEqual(
+    buildQueue(cards, { now: NOW, newPerDay: 20 }).map((c) => c.deckId),
+    ['frances', 'chino', 'frances', 'chino', 'frances', 'chino'],
+  );
+});
+
+test('[RF-402] newAllowedToday descuenta lo ya introducido en ese mazo', () => {
+  const opts = { newPerDay: 20, introducedByDeck: { frances: 7 } };
+  assert.equal(newAllowedToday('frances', opts), 13);
+  assert.equal(newAllowedToday('chino', opts), 20);
+  assert.equal(newAllowedToday('frances', { newPerDay: 5, introducedByDeck: { frances: 9 } }), 0);
 });
 
 test('[RF-401] los repasos vencidos se ofrecen todos, sin tope diario', () => {
@@ -253,7 +308,7 @@ test('[RF-404] el aprendizaje ya empezado no se corta por los límites', () => {
     fresh({ id: 'l', state: 'learning', due: NOW - MIN }),
     fresh({ id: 'r', state: 'relearning', due: NOW - MIN, interval: 3 }),
   ];
-  const queue = buildQueue(cards, { now: NOW, newPerDay: 0, introducedToday: 999 });
+  const queue = buildQueue(cards, { now: NOW, newPerDay: 0, introducedByDeck: { d1: 999 } });
   assert.equal(queue.length, 2);
 });
 
@@ -306,7 +361,11 @@ test('[RF-306] un mazo vacío lo dice', () => {
 
 test('[RF-306] con el límite de nuevas alcanzado se dice cuántas quedan', () => {
   const cards = [fresh({ id: 'a' }), fresh({ id: 'b' })];
-  const motivo = emptyQueueReason(cards, { now: NOW, newPerDay: 5, introducedToday: 5 });
+  const motivo = emptyQueueReason(cards, {
+    now: NOW,
+    newPerDay: 5,
+    introducedByDeck: { d1: 5 },
+  });
   assert.equal(motivo.code, 'limite-nuevas');
   assert.match(motivo.message, /límite de 5/);
   assert.match(motivo.message, /Quedan 2/);
@@ -345,4 +404,85 @@ test('[RF-405] el día de estudio empieza a las 4 de la mañana', () => {
   const tarde = new Date(2026, 0, 15, 22, 0).getTime();
   assert.equal(dayStart(madrugada), new Date(2026, 0, 14, 4, 0, 0, 0).getTime());
   assert.equal(dayStart(tarde), new Date(2026, 0, 15, 4, 0, 0, 0).getTime());
+});
+
+// --- Resumen por mazo -----------------------------------------------------
+
+const MAZOS = [
+  { id: 'frances', name: 'Francés' },
+  { id: 'chino', name: 'Chino' },
+];
+
+test('[RF-110] el resumen de un mazo desglosa lo que toca hoy', () => {
+  const cards = [
+    fresh({ id: 'n1', deckId: 'frances' }),
+    fresh({ id: 'n2', deckId: 'frances' }),
+    fresh({ id: 'l1', deckId: 'frances', state: 'learning', due: NOW - MIN }),
+    { ...reviewing(5), id: 'r1', deckId: 'frances' },
+    fresh({ id: 'f1', deckId: 'frances', state: 'review', interval: 5, due: NOW + DAY }),
+    fresh({ id: 'otro', deckId: 'chino' }),
+  ];
+
+  const r = deckSummary(MAZOS[0], cards, { now: NOW, newPerDay: 20 });
+  assert.equal(r.total, 5); // no cuenta la del otro mazo
+  assert.equal(r.nuevas, 2);
+  assert.equal(r.nuevasHoy, 2);
+  assert.equal(r.aprendiendo, 1);
+  assert.equal(r.repaso, 1);
+  assert.equal(r.pendientes, 4);
+});
+
+test('[RF-110] el resumen descuenta el cupo de nuevas ya consumido hoy', () => {
+  const cards = [
+    fresh({ id: 'a', deckId: 'frances' }),
+    fresh({ id: 'b', deckId: 'frances' }),
+    fresh({ id: 'c', deckId: 'frances' }),
+  ];
+  const r = deckSummary(MAZOS[0], cards, {
+    now: NOW,
+    newPerDay: 5,
+    introducedByDeck: { frances: 4 },
+  });
+  assert.equal(r.nuevas, 3);
+  assert.equal(r.nuevasHoy, 1); // solo queda un hueco en el cupo
+  assert.equal(r.pendientes, 1);
+});
+
+test('[RF-110] un mazo al día no tiene nada pendiente', () => {
+  const cards = [fresh({ id: 'f', deckId: 'frances', state: 'review', interval: 5, due: NOW + DAY })];
+  const r = deckSummary(MAZOS[0], cards, { now: NOW });
+  assert.equal(r.pendientes, 0);
+  assert.equal(r.total, 1);
+});
+
+test('[RF-110] hay un resumen por cada mazo, tenga tarjetas o no', () => {
+  const resumenes = deckSummaries(MAZOS, [fresh({ id: 'a', deckId: 'frances' })], { now: NOW });
+  assert.deepEqual(
+    resumenes.map((r) => [r.deck.id, r.total, r.pendientes]),
+    [
+      ['frances', 1, 1],
+      ['chino', 0, 0],
+    ],
+  );
+});
+
+// --- Tarjetas problemáticas -----------------------------------------------
+
+test('[RF-505] se listan las tarjetas con 5 olvidos o más, de peor a mejor', () => {
+  const cards = [
+    fresh({ id: 'ok', lapses: 1 }),
+    fresh({ id: 'justa', lapses: 5 }),
+    fresh({ id: 'mala', lapses: 9 }),
+    fresh({ id: 'regular', lapses: 6 }),
+  ];
+  assert.deepEqual(
+    leeches(cards).map((c) => c.id),
+    ['mala', 'regular', 'justa'],
+  );
+});
+
+test('[RF-505] el umbral se puede ajustar y sin problemáticas devuelve vacío', () => {
+  const cards = [fresh({ id: 'a', lapses: 3 })];
+  assert.deepEqual(leeches(cards), []);
+  assert.equal(leeches(cards, { minLapses: 3 }).length, 1);
 });

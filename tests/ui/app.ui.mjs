@@ -128,8 +128,34 @@ await page.goto(url);
 await page.waitForSelector('.tabbar');
 
 const ir = (vista) => page.click(`.tab[data-view="${vista}"]`);
+const crearMazo = async (nombre) => {
+  await ir('decks');
+  await page.fill('#new-deck-name', nombre);
+  await page.click('#btn-add-deck');
+  await page.waitForTimeout(150);
+};
+const marcarSolo = async (nombre) => {
+  await ir('decks');
+  const filas = page.locator('#deck-cards li');
+  const total = await filas.count();
+  for (let i = 0; i < total; i += 1) {
+    const texto = await filas.nth(i).locator('.deck-name').textContent();
+    if (texto.trim() === nombre) {
+      await filas.nth(i).locator('.deck-open').click();
+      return;
+    }
+  }
+  throw new Error(`no encuentro el mazo ${nombre}`);
+};
 
 // --- Tarjetas y mazos -----------------------------------------------------
+
+await paso('[RF-110] la app arranca en la pantalla de mazos', async () => {
+  assert(await page.locator('#view-decks').isVisible(), 'no arranca en Mazos');
+  assert((await page.locator('#deck-cards li').count()) === 1, 'debería haber un mazo inicial');
+  const detalle = await page.textContent('#deck-cards li .deck-detail');
+  assert(detalle.includes('Sin tarjetas'), `detalle inesperado: ${detalle}`);
+});
 
 await paso('[RF-101] crear una tarjeta a mano la deja lista para estudiar', async () => {
   await ir('cards');
@@ -182,27 +208,56 @@ await paso('[RF-104] el buscador filtra sin distinguir mayúsculas', async () =>
   await page.fill('#card-search', '');
 });
 
-await paso('[RF-108] el selector de mazo limita lo que se ve', async () => {
-  await ir('settings');
-  await page.fill('#new-deck-name', 'Francés');
-  await page.click('#btn-add-deck');
-  await page.waitForTimeout(150);
+await paso('[RF-110] cada mazo enseña lo que le toca hoy', async () => {
+  await crearMazo('Francés');
+  const filas = page.locator('#deck-cards li');
+  assert((await filas.count()) === 2, 'no aparece el mazo nuevo');
 
-  const opciones = await page.locator('#deck-select option').allTextContents();
-  assert(opciones[0] === 'Todos los mazos', `primera opción: ${opciones[0]}`);
-  assert(opciones.includes('Francés'), 'no aparece el mazo nuevo');
+  const general = await filas.nth(0).locator('.deck-detail').textContent();
+  assert(/10 nuevas/.test(general), `detalle del mazo con tarjetas: ${general}`);
+  assert((await filas.nth(0).locator('.deck-pending').textContent()).trim() === '10');
+
+  // El mazo recién creado está vacío y se distingue a simple vista.
+  assert((await filas.nth(1).locator('.deck-pending').textContent()).includes('✓'));
+  assert((await filas.nth(1).getAttribute('class')).includes('al-dia'));
+});
+
+await paso('[RF-108] tocar un mazo lo estudia y la cabecera lo dice', async () => {
+  await marcarSolo('Francés');
+  assert(await page.locator('#view-study').isVisible(), 'no ha ido a estudiar');
+  assert((await page.textContent('#deck-label-text')) === 'Francés', 'la cabecera no lo refleja');
 
   await ir('cards');
   assert((await page.locator('#card-list li').count()) === 0, 'el mazo nuevo no está vacío');
+});
 
-  await page.selectOption('#deck-select', { label: 'Todos los mazos' });
-  await page.waitForTimeout(100);
+await paso('[RF-111] marcar varios mazos los estudia juntos', async () => {
+  await ir('decks');
+  // Con "Francés" seleccionado, marcar también el primero.
+  await page.locator('#deck-cards li').nth(0).locator('.deck-check').check();
+  await page.waitForTimeout(150);
+  assert(
+    (await page.textContent('#deck-label-text')) === 'Todos los mazos',
+    'marcar los dos de dos equivale a todos',
+  );
+
+  await ir('cards');
   assert((await page.locator('#card-list li').count()) === 10, 'no vuelven a verse todas');
+});
+
+await paso('[RF-111] el botón Todos limpia la selección', async () => {
+  await marcarSolo('Francés');
+  await ir('decks');
+  await page.click('#btn-select-all');
+  await page.waitForTimeout(120);
+  assert((await page.textContent('#deck-label-text')) === 'Todos los mazos');
 });
 
 // --- Sesión de estudio ----------------------------------------------------
 
 await paso('[RF-301] la respuesta y los botones no se ven hasta voltear', async () => {
+  await ir('decks');
+  await page.click('#btn-select-all');
   await ir('study');
   await page.waitForSelector('#study-card:not(.hidden)');
   assert(!(await page.locator('#face-back').isVisible()), 'la respuesta está a la vista');
@@ -306,7 +361,41 @@ await paso('[RF-109] se puede reiniciar el progreso desde el editor', async () =
   assert(meta.includes('nueva'), `la tarjeta no ha vuelto a nueva: ${meta}`);
 });
 
+await paso('[RF-504] el progreso se desglosa por mazo', async () => {
+  await ir('settings');
+  const filas = page.locator('#deck-stats li');
+  assert((await filas.count()) === 2, 'debería haber una fila por mazo');
+  const primera = await filas.nth(0).textContent();
+  assert(/tarjetas/.test(primera) && /aciertos/.test(primera), `fila: ${primera}`);
+  assert(/aciertos —/.test(await filas.nth(1).textContent()), 'un mazo sin uso debe mostrar —');
+});
+
+await paso('[RF-505] sin tarjetas problemáticas se dice explícitamente', async () => {
+  await ir('settings');
+  const texto = await page.textContent('#leech-list');
+  assert(/Ninguna por ahora/.test(texto), `lista: ${texto}`);
+});
+
+await paso('[RF-211] el aviso de copia de seguridad aparece y se puede quitar', async () => {
+  await ir('decks');
+  assert(await page.locator('#backup-banner').isVisible(), 'no avisa de la copia');
+  const detalle = await page.textContent('#backup-detail');
+  assert(/solo en este dispositivo/.test(detalle), `aviso: ${detalle}`);
+
+  const [descarga] = await Promise.all([
+    page.waitForEvent('download'),
+    page.click('#btn-backup'),
+  ]);
+  const datos = JSON.parse(await readFile(await descarga.path(), 'utf8'));
+  assert(datos.cards.length === 10, `la copia trae ${datos.cards.length} tarjetas`);
+  assert(/^tarjetas-\d{4}-\d{2}-\d{2}\.json$/.test(descarga.suggestedFilename()));
+
+  await page.waitForTimeout(200);
+  assert(!(await page.locator('#backup-banner').isVisible()), 'el aviso no desaparece');
+});
+
 await paso('[RF-109] una tarjeta sin estudiar no ofrece reiniciar', async () => {
+  await ir('cards');
   await page.click('#btn-new-card');
   assert(!(await page.locator('#editor-reset').isVisible()), 'ofrece reiniciar una tarjeta nueva');
   await page.click('#editor button[value="cancel"]');
@@ -350,6 +439,7 @@ await paso('[RF-407] la pantalla vacía se actualiza sola al vencer la tarjeta',
     localStorage.setItem('tarjetasMemoria.v1', valor);
   }, JSON.stringify(estado));
   await pagina.goto(url);
+  await pagina.click('.tab[data-view="study"]');
 
   await pagina.waitForSelector('#study-empty:not(.hidden)');
   const motivo = await pagina.textContent('#study-empty-detail');
@@ -366,7 +456,7 @@ await paso('[RF-407] la pantalla vacía se actualiza sola al vencer la tarjeta',
 // --- Aspecto --------------------------------------------------------------
 
 await paso('[RNF-105] a 390 px no hay desplazamiento horizontal', async () => {
-  for (const vista of ['study', 'cards', 'import', 'settings']) {
+  for (const vista of ['decks', 'study', 'cards', 'import', 'settings']) {
     await ir(vista);
     await page.waitForTimeout(80);
     const desborda = await page.evaluate(
@@ -374,6 +464,14 @@ await paso('[RNF-105] a 390 px no hay desplazamiento horizontal', async () => {
     );
     assert(!desborda, `la vista ${vista} desborda a lo ancho`);
   }
+});
+
+await paso('[RNF-105] la barra de pestañas cabe en una sola fila', async () => {
+  const arriba = await page.locator('.tab').evaluateAll((nodos) =>
+    nodos.map((n) => Math.round(n.getBoundingClientRect().top)),
+  );
+  assert(arriba.length === 5, `esperaba 5 pestañas, hay ${arriba.length}`);
+  assert(new Set(arriba).size === 1, `las pestañas se parten en varias filas: ${arriba}`);
 });
 
 await paso('[RNF-105] los botones se pueden pulsar con el pulgar', async () => {
